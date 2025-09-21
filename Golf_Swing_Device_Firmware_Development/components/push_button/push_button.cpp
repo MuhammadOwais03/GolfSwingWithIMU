@@ -9,7 +9,7 @@ extern "C" int ets_printf(const char *fmt, ...);
 // Queue to notify button press
 static QueueHandle_t button_evt_queue = nullptr;
 
-PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu) : pin_(pin), blinker_(blinker), mpu_(mpu) 
+PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile *flash) : pin_(pin), blinker_(blinker), mpu_(mpu), flash_(flash)
 {
 
     ets_printf("Configuring button on GPIO %d\n", this->pin_);
@@ -54,52 +54,77 @@ void IRAM_ATTR PushButton::button_isr_handler(void *arg)
     }
 }
 
-// // Task to process button events (safe context)
+
 // void PushButton::button_task(void *pvParameters)
 // {
 //     auto *button = static_cast<PushButton *>(pvParameters);
 //     gpio_num_t pin;
-   
+//     TickType_t last_press = 0;
+//     const TickType_t debounce_delay = pdMS_TO_TICKS(50);
 
 //     for (;;) {
-//         if (xQueueReceive(button_evt_queue, &pin, portMAX_DELAY)) {
-//             ets_printf("Button pressed on GPIO %d, %d\n", pin, button->blinker_->is_on());
-//             button->blinker_->blink_toggle();
-//             ets_printf("Toggle %d, %d\n", pin, button->blinker_->is_on());
-//             // Safe to call here (not inside ISR)
-//            if (button->blinker_->is_on()) {
-//                 ets_printf("LED is ON, start reading MPU\n");
-//                 while (button->blinker_->is_on()) {
-//                     button->mpu_->readRawData();
-//                     vTaskDelay(pdMS_TO_TICKS(1000));
-//                 }
-//                 ets_printf("LED turned OFF, stop reading\n");
+//         if (xQueueReceive(button_evt_queue, &pin, pdMS_TO_TICKS(10))) {
+//             TickType_t now = xTaskGetTickCount();
+//             if ((now - last_press) > debounce_delay) {
+//                 button->blinker_->blink_toggle();
+//                 last_press = now;
 //             }
+//         }
+
+//         if (button->blinker_->is_on()) {
+//             // Attempt to read MPU data with timeout
+//             button->flash_->clear_file();
+//             button->mpu_->readRawData();
+//             vTaskDelay(pdMS_TO_TICKS(1000)); // Read every 1s
+//         }
+//         else if (!button->blinker_->is_on()) {
+//             button->flash_->write_file(button->mpu_->readings);
+//             button->mpu_->readings = {};
+//             button->flash_->read_file();
+//         }
+//         else {
+//             vTaskDelay(pdMS_TO_TICKS(10)); // Short delay when LED is OFF
 //         }
 //     }
 // }
+
+
 
 void PushButton::button_task(void *pvParameters)
 {
     auto *button = static_cast<PushButton *>(pvParameters);
     gpio_num_t pin;
     TickType_t last_press = 0;
+    TickType_t blinker_on_time = 0;
     const TickType_t debounce_delay = pdMS_TO_TICKS(50);
+    const TickType_t auto_off_delay = pdMS_TO_TICKS(15000); // 15 seconds
 
     for (;;) {
         if (xQueueReceive(button_evt_queue, &pin, pdMS_TO_TICKS(10))) {
             TickType_t now = xTaskGetTickCount();
             if ((now - last_press) > debounce_delay) {
                 button->blinker_->blink_toggle();
+                if (button->blinker_->is_on()) {
+                    blinker_on_time = now; // Record when blinker turned on
+                }
                 last_press = now;
             }
         }
 
+        // Check if blinker is on and auto-off time has elapsed
         if (button->blinker_->is_on()) {
-            // Attempt to read MPU data with timeout
+            TickType_t now = xTaskGetTickCount();
+            if ((now - blinker_on_time) > auto_off_delay) {
+                button->blinker_->blink_toggle(); // Turn off blinker
+                blinker_on_time = 0; // Reset on time
+            }
+            button->flash_->clear_file();
             button->mpu_->readRawData();
             vTaskDelay(pdMS_TO_TICKS(1000)); // Read every 1s
         } else {
+            button->flash_->write_file(button->mpu_->readings);
+            button->mpu_->readings = {};
+            button->flash_->read_file();
             vTaskDelay(pdMS_TO_TICKS(10)); // Short delay when LED is OFF
         }
     }

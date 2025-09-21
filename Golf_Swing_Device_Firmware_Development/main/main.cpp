@@ -9,6 +9,7 @@ extern "C" void app_main(void)
 {
      static blink blinker;   
     static MPU6050 mpu;
+    static FlashFile flash("/spiffs", "/sensor.csv", 5, 0, 0);
 
 
     blinker.blink_init();
@@ -18,7 +19,7 @@ extern "C" void app_main(void)
     gpio_install_isr_service(0);
     // PushButton button(GPIO_NUM_15, &blinker, &mpu); // Initialize button on GPIO 0
     // Create PushButton dynamically
-    button = new PushButton(GPIO_NUM_15, &blinker, &mpu);
+    button = new PushButton(GPIO_NUM_15, &blinker, &mpu, &flash);
 
    
 }

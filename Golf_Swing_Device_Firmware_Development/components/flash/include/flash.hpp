@@ -14,7 +14,8 @@ public:
     void flash_config();
     void size_of_flash();
     void read_file();
-    void write_file(const std::vector<float>& readings); // example with floats
+    void clear_file();
+    void write_file(const  std::vector<std::vector<float>>& readings); // example with floats
 
 private:
     std::string BASEPATH;

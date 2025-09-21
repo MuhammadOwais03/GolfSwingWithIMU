@@ -70,7 +70,7 @@ void FlashFile::read_file()
 
 
 
-void FlashFile::write_file(const std::vector<float>& readings) {
+void FlashFile::write_file(const std::vector<std::vector<float>>& readings) {
     // Open file for appending (creates if not exists)
     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
     if (f == nullptr) {
@@ -86,17 +86,40 @@ void FlashFile::write_file(const std::vector<float>& readings) {
     }
 
     // Sanity check: expect exactly 6 values
-    if (readings.size() != 6) {
-        ESP_LOGE(TAG, "Expected 6 readings, got %d", (int)readings.size());
+    if (readings.size() == 0) {
+        ESP_LOGE(TAG, "Expected something in readings readings, got %d", (int)readings.size());
         fclose(f);
         return;
     }
 
-    // Write readings as CSV row
-    fprintf(f, "%f,%f,%f,%f,%f,%f\n",
-            readings[0], readings[1], readings[2],
-            readings[3], readings[4], readings[5]);
+    // // Write readings as CSV row
+    // fprintf(f, "%f,%f,%f,%f,%f,%f\n",
+    //         readings[0], readings[1], readings[2],
+    //         readings[3], readings[4], readings[5]);
+
+    for (const std::vector<float>& reading : readings) {
+        // Write each reading as a CSV row
+        if (reading.size() == 6) {
+            fprintf(f, "%f,%f,%f,%f,%f,%f\n",
+                    reading[0], reading[1], reading[2],
+                    reading[3], reading[4], reading[5]);
+        } else {
+            ESP_LOGW(TAG, "Skipping row with unexpected size: %zu", reading.size());
+        }
+    }
+
+    
 
     fclose(f);
     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
+}
+
+void FlashFile::clear_file() {
+    FILE *f = fopen((BASEPATH + FILENAME).c_str(), "w");
+    if (f == nullptr) {
+        ESP_LOGE(TAG, "Failed to open file for clearing");
+        return;
+    }
+    fclose(f);
+    ESP_LOGI(TAG, "File %s%s cleared", BASEPATH.c_str(), FILENAME.c_str());
 }
