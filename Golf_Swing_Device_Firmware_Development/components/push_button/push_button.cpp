@@ -9,7 +9,7 @@ extern "C" int ets_printf(const char *fmt, ...);
 // Queue to notify button press
 static QueueHandle_t button_evt_queue = nullptr;
 
-PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile *flash) : pin_(pin), blinker_(blinker), mpu_(mpu), flash_(flash)
+PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile *flash, Vibration *vib) : pin_(pin), blinker_(blinker), mpu_(mpu), flash_(flash), vib_(vib)
 {
 
     ets_printf("Configuring button on GPIO %d\n", this->pin_);
@@ -21,12 +21,7 @@ PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile 
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     gpio_config(&io_conf);
 
-    // // Install ISR service only once
-    // static bool isr_service_installed = false;
-    // if (!isr_service_installed) {
-    //     gpio_install_isr_service(0);
-    //     isr_service_installed = true;
-    // }
+   
 
     // Create event queue if not exists
     if (button_evt_queue == nullptr) {
@@ -54,39 +49,6 @@ void IRAM_ATTR PushButton::button_isr_handler(void *arg)
     }
 }
 
-
-// void PushButton::button_task(void *pvParameters)
-// {
-//     auto *button = static_cast<PushButton *>(pvParameters);
-//     gpio_num_t pin;
-//     TickType_t last_press = 0;
-//     const TickType_t debounce_delay = pdMS_TO_TICKS(50);
-
-//     for (;;) {
-//         if (xQueueReceive(button_evt_queue, &pin, pdMS_TO_TICKS(10))) {
-//             TickType_t now = xTaskGetTickCount();
-//             if ((now - last_press) > debounce_delay) {
-//                 button->blinker_->blink_toggle();
-//                 last_press = now;
-//             }
-//         }
-
-//         if (button->blinker_->is_on()) {
-//             // Attempt to read MPU data with timeout
-//             button->flash_->clear_file();
-//             button->mpu_->readRawData();
-//             vTaskDelay(pdMS_TO_TICKS(1000)); // Read every 1s
-//         }
-//         else if (!button->blinker_->is_on()) {
-//             button->flash_->write_file(button->mpu_->readings);
-//             button->mpu_->readings = {};
-//             button->flash_->read_file();
-//         }
-//         else {
-//             vTaskDelay(pdMS_TO_TICKS(10)); // Short delay when LED is OFF
-//         }
-//     }
-// }
 
 
 
@@ -120,9 +82,10 @@ void PushButton::button_task(void *pvParameters)
             }
             button->flash_->clear_file();
             button->mpu_->readRawData();
+            button->vib_->read_vibration_data();
             vTaskDelay(pdMS_TO_TICKS(1000)); // Read every 1s
         } else {
-            button->flash_->write_file(button->mpu_->readings);
+            button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
             button->mpu_->readings = {};
             button->flash_->read_file();
             vTaskDelay(pdMS_TO_TICKS(10)); // Short delay when LED is OFF

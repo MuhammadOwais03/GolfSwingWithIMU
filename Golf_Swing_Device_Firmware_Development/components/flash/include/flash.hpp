@@ -15,8 +15,12 @@ public:
     void size_of_flash();
     void read_file();
     void clear_file();
-    void write_file(const  std::vector<std::vector<float>>& readings); // example with floats
-
+    void write_file(const  std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings); 
+    std::string get_BASENAME() { return BASEPATH; };
+    std::string get_FILENAME() { return FILENAME; };
+    size_t get_TOTAL() { return TOTAL; };
+    size_t get_USED() { return USED; };
+ 
 private:
     std::string BASEPATH;
     std::string FILENAME;

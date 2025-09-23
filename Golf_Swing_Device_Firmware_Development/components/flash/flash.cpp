@@ -65,12 +65,12 @@ void FlashFile::read_file()
     fread(&content[0], 1, filesize, fptr);
     fclose(fptr);
 
-    ESP_LOGI("OWAIS", "Full file content:\n%s", content.c_str());
+    // ESP_LOGI("OWAIS", "Full file content:\n%s", content.c_str());
 }
 
 
 
-void FlashFile::write_file(const std::vector<std::vector<float>>& readings) {
+void FlashFile::write_file(const std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings) {
     // Open file for appending (creates if not exists)
     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
     if (f == nullptr) {
@@ -82,12 +82,12 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings) {
     fseek(f, 0, SEEK_END);
     long file_size = ftell(f);
     if (file_size == 0) {
-        fprintf(f, "ax,ay,az,gx,gy,gz\n");
+        fprintf(f, "ax,ay,az,gx,gy,gz,vib\n");
     }
 
     // Sanity check: expect exactly 6 values
     if (readings.size() == 0) {
-        ESP_LOGE(TAG, "Expected something in readings readings, got %d", (int)readings.size());
+        // ESP_LOGE(TAG, "Expected something in readings readings, got %d", (int)readings.size());
         fclose(f);
         return;
     }
@@ -97,12 +97,21 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings) {
     //         readings[0], readings[1], readings[2],
     //         readings[3], readings[4], readings[5]);
 
-    for (const std::vector<float>& reading : readings) {
-        // Write each reading as a CSV row
+    // Ensure vib_readings size matches readings size
+    if (vib_readings.size() != readings.size()) {
+        ESP_LOGW(TAG, "vib_readings size (%zu) does not match readings size (%zu)", vib_readings.size(), readings.size());
+    }
+
+    for (size_t i = 0; i < readings.size(); ++i) {
+        const std::vector<float>& reading = readings[i];
+        float vib = (i < vib_readings.size()) ? vib_readings[i] : 0.0f;
+
+        // Write each reading as a CSV row with vib_reading at the end
         if (reading.size() == 6) {
-            fprintf(f, "%f,%f,%f,%f,%f,%f\n",
+            fprintf(f, "%f,%f,%f,%f,%f,%f,%f\n",
                     reading[0], reading[1], reading[2],
-                    reading[3], reading[4], reading[5]);
+                    reading[3], reading[4], reading[5],
+                    vib);
         } else {
             ESP_LOGW(TAG, "Skipping row with unexpected size: %zu", reading.size());
         }

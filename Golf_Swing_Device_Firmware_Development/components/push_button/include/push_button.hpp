@@ -6,16 +6,18 @@
 #include "mpu6050.hpp"
 #include "blink.hpp"
 #include "flash.hpp"
+#include "vibration.hpp"
 
 class PushButton {
 public:
-    explicit PushButton(gpio_num_t pin, blink *blinker = nullptr, MPU6050 *mpu = nullptr, FlashFile *flash=nullptr);
+    explicit PushButton(gpio_num_t pin, blink *blinker = nullptr, MPU6050 *mpu = nullptr, FlashFile *flash=nullptr,Vibration *vib = nullptr);
 
 private:
     gpio_num_t pin_;
     blink *blinker_;
     MPU6050 *mpu_;
     FlashFile *flash_;
+    Vibration *vib_;
 
     static void IRAM_ATTR button_isr_handler(void *arg);  // static ISR
     static void button_task(void *pvParameters);
