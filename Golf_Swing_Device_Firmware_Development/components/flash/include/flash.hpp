@@ -16,6 +16,7 @@ public:
     void read_file();
     void clear_file();
     void write_file(const  std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings); 
+    void write_file_new(const  std::vector<float>& accel_low, const  std::vector<float>& gyro, const std::vector<float>& vib_readings);
     std::string get_BASENAME() { return BASEPATH; };
     std::string get_FILENAME() { return FILENAME; };
     size_t get_TOTAL() { return TOTAL; };

@@ -123,6 +123,41 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
 }
 
+void FlashFile::write_file_new(const std::vector<float> &accel_low, const std::vector<float> &gyro, const std::vector<float> &vib_readings)
+{
+    FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
+    if (f == nullptr) {
+        ESP_LOGE(TAG, "Failed to open file for writing");
+        return;
+    }
+
+    // Check if file is empty → write header
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    if (file_size == 0) {
+        fprintf(f, "ax,ay,az,gx,gy,gz,vib\n");
+    }
+
+    // Sanity checks
+    if (accel_low.size() != 3 || gyro.size() != 3) {
+        ESP_LOGW(TAG, "Expected accel_low and gyro to have 3 elements each");
+        fclose(f);
+        return;
+    }
+
+    // Write each row
+    size_t rows = std::min(std::min(accel_low.size() / 3, gyro.size() / 3), vib_readings.size());
+    // But since accel_low and gyro are expected to be size 3, and vib_readings can be 1 or more, just write one row
+    float vib = (vib_readings.size() > 0) ? vib_readings[0] : 0.0f;
+    fprintf(f, "%f,%f,%f,%f,%f,%f,%f\n",
+            accel_low[0], accel_low[1], accel_low[2],
+            gyro[0], gyro[1], gyro[2],
+            vib);
+
+    fclose(f);
+    ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
+}
+
 void FlashFile::clear_file() {
     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "w");
     if (f == nullptr) {

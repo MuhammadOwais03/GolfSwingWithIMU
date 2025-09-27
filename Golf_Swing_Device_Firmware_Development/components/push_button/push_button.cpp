@@ -9,7 +9,7 @@ extern "C" int ets_printf(const char *fmt, ...);
 // Queue to notify button press
 static QueueHandle_t button_evt_queue = nullptr;
 
-PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile *flash, Vibration *vib) : pin_(pin), blinker_(blinker), mpu_(mpu), flash_(flash), vib_(vib)
+PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile *flash, Vibration *vib, ImuManager *imu) : pin_(pin), blinker_(blinker), mpu_(mpu), flash_(flash), vib_(vib), imu_(imu)
 {
 
     ets_printf("Configuring button on GPIO %d\n", this->pin_);
@@ -81,11 +81,13 @@ void PushButton::button_task(void *pvParameters)
                 blinker_on_time = 0; // Reset on time
             }
             button->flash_->clear_file();
-            button->mpu_->readRawData();
+            // button->mpu_->readRawData();
+            button->imu_->loop();
             button->vib_->read_vibration_data();
             vTaskDelay(pdMS_TO_TICKS(1000)); // Read every 1s
         } else {
-            button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
+            // button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
+            button->flash_->write_file_new(button->imu_->getRawLowAccelerationIng(), button->imu_->getRawGyroInMdps(), button->vib_->vib_readings);
             button->mpu_->readings = {};
             button->flash_->read_file();
             vTaskDelay(pdMS_TO_TICKS(10)); // Short delay when LED is OFF
