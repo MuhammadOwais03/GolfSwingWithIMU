@@ -92,4 +92,5 @@ public:
     EulerAngles getPitch() const { return pitch_; }
     EulerAngles getRoll() const { return roll_; }
     EulerAngles getYaw() const { return yaw_; }
+    std::vector<std::vector<float>> readings{};
 };

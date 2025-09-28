@@ -11,12 +11,12 @@
 
 class PushButton {
 public:
-    explicit PushButton(gpio_num_t pin, blink *blinker = nullptr, MPU6050 *mpu = nullptr, FlashFile *flash=nullptr,Vibration *vib = nullptr, ImuManager *imu = nullptr);
+    explicit PushButton(gpio_num_t pin, blink *blinker = nullptr, FlashFile *flash=nullptr,Vibration *vib = nullptr, ImuManager *imu = nullptr);
 
 private:
     gpio_num_t pin_;
     blink *blinker_;
-    MPU6050 *mpu_;
+    // MPU6050 *mpu_;
     FlashFile *flash_;
     Vibration *vib_;
     ImuManager *imu_;

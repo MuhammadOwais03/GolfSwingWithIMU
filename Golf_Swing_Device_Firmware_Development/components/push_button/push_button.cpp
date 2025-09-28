@@ -9,7 +9,7 @@ extern "C" int ets_printf(const char *fmt, ...);
 // Queue to notify button press
 static QueueHandle_t button_evt_queue = nullptr;
 
-PushButton::PushButton(gpio_num_t pin, blink* blinker,  MPU6050 *mpu, FlashFile *flash, Vibration *vib, ImuManager *imu) : pin_(pin), blinker_(blinker), mpu_(mpu), flash_(flash), vib_(vib), imu_(imu)
+PushButton::PushButton(gpio_num_t pin, blink* blinker, FlashFile *flash, Vibration *vib, ImuManager *imu) : pin_(pin), blinker_(blinker), flash_(flash), vib_(vib), imu_(imu)
 {
 
     ets_printf("Configuring button on GPIO %d\n", this->pin_);
@@ -60,6 +60,8 @@ void PushButton::button_task(void *pvParameters)
     TickType_t blinker_on_time = 0;
     const TickType_t debounce_delay = pdMS_TO_TICKS(50);
     const TickType_t auto_off_delay = pdMS_TO_TICKS(15000); // 15 seconds
+    bool write_done = true;
+    
 
     for (;;) {
         if (xQueueReceive(button_evt_queue, &pin, pdMS_TO_TICKS(10))) {
@@ -76,21 +78,29 @@ void PushButton::button_task(void *pvParameters)
         // Check if blinker is on and auto-off time has elapsed
         if (button->blinker_->is_on()) {
             TickType_t now = xTaskGetTickCount();
+            write_done = false;
             if ((now - blinker_on_time) > auto_off_delay) {
                 button->blinker_->blink_toggle(); // Turn off blinker
                 blinker_on_time = 0; // Reset on time
             }
             button->flash_->clear_file();
-            // button->mpu_->readRawData();
             button->imu_->loop();
+
+            const RawAccelVec& accel = button->imu_->getRawLowAccelerationIng();
+            const RawGyroVec& gyro = button->imu_->getRawGyroInMdps();
+            button->imu_->readings.push_back({accel[0], accel[1], accel[2], gyro[0], gyro[1], gyro[2]});
             button->vib_->read_vibration_data();
-            vTaskDelay(pdMS_TO_TICKS(1000)); // Read every 1s
+            vTaskDelay(pdMS_TO_TICKS(25)); // Read every 1s
         } else {
             // button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
-            button->flash_->write_file_new(button->imu_->getRawLowAccelerationIng(), button->imu_->getRawGyroInMdps(), button->vib_->vib_readings);
-            button->mpu_->readings = {};
+            if (!write_done) {
+                button->flash_->write_file(button->imu_->readings, button->vib_->vib_readings);
+                write_done = true;
+            }            
             button->flash_->read_file();
-            vTaskDelay(pdMS_TO_TICKS(10)); // Short delay when LED is OFF
+            ESP_LOGI("PushButton", "Readings size: %d", button->imu_->readings.size());
+            vTaskDelay(pdMS_TO_TICKS(100)); // Read every 1s
+            
         }
     }
 }

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "vibration.hpp"
 
-#define VIBRATION_GPIO GPIO_NUM_26
+#define VIBRATION_GPIO GPIO_NUM_34
 
 void Vibration::vibrational_setup()
 {
