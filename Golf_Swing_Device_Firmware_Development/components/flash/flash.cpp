@@ -102,6 +102,8 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
         ESP_LOGW(TAG, "vib_readings size (%zu) does not match readings size (%zu)", vib_readings.size(), readings.size());
     }
 
+    int c = 1;
+
     for (size_t i = 0; i < readings.size(); ++i) {
         const std::vector<float>& reading = readings[i];
         float vib = (i < vib_readings.size()) ? vib_readings[i] : 0.0f;
@@ -112,12 +114,14 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
                     reading[0], reading[1], reading[2],
                     reading[3], reading[4], reading[5],
                     vib);
+                    c++;
         } else {
             ESP_LOGW(TAG, "Skipping row with unexpected size: %zu", reading.size());
         }
     }
 
     fprintf(f, "EOF"); // Separate entries with a blank line
+    ESP_LOGI(TAG, "Number of rows written: %d", c);
 
     fclose(f);
     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());

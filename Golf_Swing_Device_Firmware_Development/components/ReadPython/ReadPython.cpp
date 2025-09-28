@@ -58,12 +58,12 @@ void ReadPython::read_python_file()
                 if (!f) {
                     uart_write_bytes(UART_PORT, "ERROR: Cannot open file\n", 24);
                 } else {
-                    char buf[128];
+                    char buf[16];
                     while (fgets(buf, sizeof(buf), f)) {
                         uart_write_bytes(UART_PORT, buf, strlen(buf));
                     }
                     fclose(f);
-                    uart_write_bytes(UART_PORT, "EOF\n", 4);
+                    // uart_write_bytes(UART_PORT, "EOF\n", 4);
                 }
             }
             else if (cmd == "CLEAR_FILE") {
