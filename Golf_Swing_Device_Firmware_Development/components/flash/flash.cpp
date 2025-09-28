@@ -117,7 +117,7 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
         }
     }
 
-    
+    fprintf(f, "EOF"); // Separate entries with a blank line
 
     fclose(f);
     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
