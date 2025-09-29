@@ -59,7 +59,7 @@ void PushButton::button_task(void *pvParameters)
     TickType_t last_press = 0;
     TickType_t blinker_on_time = 0;
     const TickType_t debounce_delay = pdMS_TO_TICKS(50);
-    const TickType_t auto_off_delay = pdMS_TO_TICKS(15000); // 15 seconds
+    const TickType_t auto_off_delay = pdMS_TO_TICKS(8000); // 15 seconds
     bool write_done = true;
     
 
