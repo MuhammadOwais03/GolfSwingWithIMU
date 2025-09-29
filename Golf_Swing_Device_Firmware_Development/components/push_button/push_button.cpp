@@ -70,6 +70,8 @@ void PushButton::button_task(void *pvParameters)
                 button->blinker_->blink_toggle();
                 if (button->blinker_->is_on()) {
                     blinker_on_time = now; // Record when blinker turned on
+                    button->imu_->readings.clear(); // Clear IMU readings when blinker turns on
+                    button->vib_->vib_readings.clear(); // Clear vibration readings when blinker turns on
                 }
                 last_press = now;
             }
@@ -83,7 +85,7 @@ void PushButton::button_task(void *pvParameters)
                 button->blinker_->blink_toggle(); // Turn off blinker
                 blinker_on_time = 0; // Reset on time
             }
-            button->flash_->clear_file();
+            
             button->imu_->loop();
 
             const RawAccelVec& accel = button->imu_->getRawLowAccelerationIng();
@@ -94,11 +96,12 @@ void PushButton::button_task(void *pvParameters)
         } else {
             // button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
             if (!write_done) {
+                button->flash_->clear_file();
                 button->flash_->write_file(button->imu_->readings, button->vib_->vib_readings);
+                button->flash_->read_file();
                 write_done = true;
             }            
-            button->flash_->read_file();
-            ESP_LOGI("PushButton", "Readings size: %d", button->imu_->readings.size());
+            // ESP_LOGI("PushButton", "Readings size: %d", button->imu_->readings.size());
             vTaskDelay(pdMS_TO_TICKS(100)); // Read every 1s
             
         }

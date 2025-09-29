@@ -3,6 +3,7 @@
 #include "flash.hpp"
 #include "esp_spiffs.h"
 #include "esp_log.h"
+#include <unistd.h>
 
 static const char *TAG = "FlashFile";
 
@@ -40,11 +41,11 @@ void FlashFile::size_of_flash()
     esp_err_t result;
     result = esp_spiffs_info(NULL, &this->TOTAL, &this->USED); // get info about the storage
     if (result != ESP_OK) {
-        ESP_LOGE("OWAIS", "Failed to get SPIFFS partition information (%s)", esp_err_to_name(result));
+        ESP_LOGE("Flash", "Failed to get SPIFFS partition information (%s)", esp_err_to_name(result));
     } else {
-        ESP_LOGI("OWAIS", "Partition size: total: %zu, used: %zu", this->TOTAL, this->USED);
+        ESP_LOGI("Flash", "Partition size: total: %zu, used: %zu", this->TOTAL, this->USED);
         if (this->USED > this->TOTAL) {
-            ESP_LOGW("OWAIS", "SPIFFS reports used > total, filesystem may be corrupted");
+            ESP_LOGW("Flash", "SPIFFS reports used > total, filesystem may be corrupted");
         }
     }
 }
@@ -53,7 +54,7 @@ void FlashFile::read_file()
 {
     FILE *fptr = fopen((BASEPATH + FILENAME).c_str(), "r");
     if (fptr == NULL) {
-        ESP_LOGE("OWAIS", "Failed to open file for reading");
+        ESP_LOGE("Flash", "Failed to open file for reading");
         return;
     }
 
@@ -61,11 +62,22 @@ void FlashFile::read_file()
     long filesize = ftell(fptr);
     rewind(fptr);
 
+
+    // Count lines
+    int line_count = 0;
+    char buf[256];
+    while (fgets(buf, sizeof(buf), fptr)) {
+        line_count++;
+    }
+    rewind(fptr); // Reset file pointer to beginning
+
+    ESP_LOGI("Flash", "Number of lines in file: %d", line_count);
+
     std::string content(filesize, '\0');
     fread(&content[0], 1, filesize, fptr);
     fclose(fptr);
 
-    ESP_LOGI("OWAIS", "Full file content:\n%s", content.c_str());
+    // ESP_LOGI("Flash", "Full file content:\n%s", content.c_str());
 }
 
 
@@ -157,12 +169,54 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
 //     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
 // }
 
+// void FlashFile::clear_file() {
+//     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "w");
+//     if (f == nullptr) {
+//         ESP_LOGE(TAG, "Failed to open file for clearing");
+//         return;
+//     }
+//     //  // Count lines
+//     // int line_count = 0;
+//     // char buf[256];
+//     // while (fgets(buf, sizeof(buf), f)) {
+//     //     line_count++;
+//     // }
+//     // rewind(f); // Reset file pointer to beginning
+
+//     // ESP_LOGI("Flash", "Number of lines in file: %d", line_count);
+
+//     ESP_LOGI("Flash", "Name of file: %s", (BASEPATH + FILENAME).c_str() );
+//     fclose(f);
+//     ESP_LOGI(TAG, "File %s%s cleared", BASEPATH.c_str(), FILENAME.c_str());
+// }
+
 void FlashFile::clear_file() {
-    FILE *f = fopen((BASEPATH + FILENAME).c_str(), "w");
+    const std::string filepath = BASEPATH + FILENAME;
+    ESP_LOGI(TAG, "Attempting to clear file: %s", filepath.c_str());
+
+    FILE *f = fopen(filepath.c_str(), "w");
     if (f == nullptr) {
-        ESP_LOGE(TAG, "Failed to open file for clearing");
+        ESP_LOGE(TAG, "Failed to open file %s for clearing: %s", filepath.c_str(), strerror(errno));
         return;
     }
+
+    // Explicitly truncate the file
+    if (ftruncate(fileno(f), 0) != 0) {
+        ESP_LOGE(TAG, "Failed to truncate file %s: %s", filepath.c_str(), strerror(errno));
+    } else {
+        ESP_LOGI(TAG, "File %s cleared successfully", filepath.c_str());
+    }
+
     fclose(f);
-    ESP_LOGI(TAG, "File %s%s cleared", BASEPATH.c_str(), FILENAME.c_str());
 }
+
+
+// void FlashFile::clear_file() {
+//     std::string path = BASEPATH + FILENAME;
+
+//     if (remove(path.c_str()) == 0) {
+//         ESP_LOGI(TAG, "File %s%s deleted successfully", BASEPATH.c_str(), FILENAME.c_str());
+//     } else {
+//         ESP_LOGE(TAG, "Failed to delete file %s%s", BASEPATH.c_str(), FILENAME.c_str());
+//     }
+// }

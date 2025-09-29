@@ -32,7 +32,7 @@ class GolfIMU:
             raise
 
     def read_data(self):
-        print("1: Sending READ_FILE command")
+        # print("1: Sending READ_FILE command")
         self.ser.write(b"READ_FILE\r\n")
         file_content = ""
         count = 0

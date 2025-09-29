@@ -43,7 +43,7 @@ void ReadPython::read_python_file()
 
     uint8_t data[BUF_SIZE];
 
-    int len = uart_read_bytes(UART_PORT, data, BUF_SIZE - 1, pdMS_TO_TICKS(1000));
+    int len = uart_read_bytes(UART_PORT, data, BUF_SIZE - 1, pdMS_TO_TICKS(25));
         if (len > 0) {
             data[len] = '\0';
             std::string cmd = std::string((char *)data);

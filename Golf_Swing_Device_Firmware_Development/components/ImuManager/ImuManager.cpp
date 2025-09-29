@@ -182,7 +182,7 @@ void ImuManager::setupImuDataRatesAndScales()
     lsm6dsv320x_xl_data_rate_set(&devCtx, LSM6DSV320X_ODR_AT_60Hz);
     lsm6dsv320x_hg_xl_data_rate_set(&devCtx, LSM6DSV320X_HG_XL_ODR_AT_960Hz, 1);
     lsm6dsv320x_gy_data_rate_set(&devCtx, LSM6DSV320X_ODR_AT_120Hz);
-    lsm6dsv320x_xl_full_scale_set(&devCtx, LSM6DSV320X_2g);
+    lsm6dsv320x_xl_full_scale_set(&devCtx, LSM6DSV320X_16g);
     lsm6dsv320x_hg_xl_full_scale_set(&devCtx, LSM6DSV320X_320g);
     lsm6dsv320x_gy_full_scale_set(&devCtx, LSM6DSV320X_2000dps);
 }
