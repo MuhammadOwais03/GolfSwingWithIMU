@@ -215,9 +215,9 @@ void ImuManager::updateLowAccelVec()
     {
         memset(dataRawMotionOne, 0, sizeof(dataRawMotionOne));
         lsm6dsv320x_acceleration_raw_get(&devCtx, dataRawMotionOne);
-        lowAccel_[0] = lsm6dsv320x_from_fs2_to_mg(dataRawMotionOne[0]) / 1000.0;
-        lowAccel_[1] = lsm6dsv320x_from_fs2_to_mg(dataRawMotionOne[1]) / 1000.0;
-        lowAccel_[2] = lsm6dsv320x_from_fs2_to_mg(dataRawMotionOne[2]) / 1000.0;
+        lowAccel_[0] = lsm6dsv320x_from_fs32_to_mg(dataRawMotionOne[0]) / 1000.0;
+        lowAccel_[1] = lsm6dsv320x_from_fs32_to_mg(dataRawMotionOne[1]) / 1000.0;
+        lowAccel_[2] = lsm6dsv320x_from_fs32_to_mg(dataRawMotionOne[2]) / 1000.0;
         ESP_LOGI(TAG, "LOW Accel [g]: %.3f %.3f %.3f", lowAccel_[0] , lowAccel_[1] , lowAccel_[2] );
     }
 }
@@ -231,7 +231,7 @@ void ImuManager::updateHighAccelVec()
         highAccel_[0] = lsm6dsv320x_from_fs256_to_mg(dataRawMotionTwo[0]) / 1000.0;
         highAccel_[1] = lsm6dsv320x_from_fs256_to_mg(dataRawMotionTwo[1]) / 1000.0;
         highAccel_[2] = lsm6dsv320x_from_fs256_to_mg(dataRawMotionTwo[2]) / 1000.0;
-        ESP_LOGI(TAG, "HIGH Accel [g]: %.3f %.3f %.3f", highAccel_[0] , highAccel_[1] , highAccel_[2]);
+        // ESP_LOGI(TAG, "HIGH Accel [g]: %.3f %.3f %.3f", highAccel_[0] , highAccel_[1] , highAccel_[2]);
     }
 }
 

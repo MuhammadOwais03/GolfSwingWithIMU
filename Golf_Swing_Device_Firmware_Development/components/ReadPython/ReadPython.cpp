@@ -4,7 +4,7 @@
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-
+#include <cstring>
 
 #define BUF_SIZE 1024
 

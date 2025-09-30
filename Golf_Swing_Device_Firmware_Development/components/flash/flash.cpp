@@ -4,6 +4,8 @@
 #include "esp_spiffs.h"
 #include "esp_log.h"
 #include <unistd.h>
+#include <cstring>   // for strerror
+#include <cerrno>    // for errno
 
 static const char *TAG = "FlashFile";
 
