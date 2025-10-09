@@ -179,9 +179,9 @@ Flag ImuManager::resetImu()
 void ImuManager::setupImuDataRatesAndScales() 
 {
     lsm6dsv320x_block_data_update_set(&devCtx, PROPERTY_ENABLE);
-    lsm6dsv320x_xl_data_rate_set(&devCtx, LSM6DSV320X_ODR_AT_60Hz);
-    lsm6dsv320x_hg_xl_data_rate_set(&devCtx, LSM6DSV320X_HG_XL_ODR_AT_960Hz, 1);
-    lsm6dsv320x_gy_data_rate_set(&devCtx, LSM6DSV320X_ODR_AT_120Hz);
+    lsm6dsv320x_xl_data_rate_set(&devCtx, LSM6DSV320X_ODR_AT_480Hz);
+    lsm6dsv320x_hg_xl_data_rate_set(&devCtx, LSM6DSV320X_HG_XL_ODR_AT_480Hz, 1);
+    lsm6dsv320x_gy_data_rate_set(&devCtx, LSM6DSV320X_ODR_AT_480Hz);
     lsm6dsv320x_xl_full_scale_set(&devCtx, LSM6DSV320X_16g);
     lsm6dsv320x_hg_xl_full_scale_set(&devCtx, LSM6DSV320X_320g);
     lsm6dsv320x_gy_full_scale_set(&devCtx, LSM6DSV320X_2000dps);
@@ -215,9 +215,9 @@ void ImuManager::updateLowAccelVec()
     {
         memset(dataRawMotionOne, 0, sizeof(dataRawMotionOne));
         lsm6dsv320x_acceleration_raw_get(&devCtx, dataRawMotionOne);
-        lowAccel_[0] = lsm6dsv320x_from_fs32_to_mg(dataRawMotionOne[0]) / 1000.0;
-        lowAccel_[1] = lsm6dsv320x_from_fs32_to_mg(dataRawMotionOne[1]) / 1000.0;
-        lowAccel_[2] = lsm6dsv320x_from_fs32_to_mg(dataRawMotionOne[2]) / 1000.0;
+        lowAccel_[0] = lsm6dsv320x_from_fs16_to_mg(dataRawMotionOne[0]) / 1000.0;
+        lowAccel_[1] = lsm6dsv320x_from_fs16_to_mg(dataRawMotionOne[1]) / 1000.0;
+        lowAccel_[2] = lsm6dsv320x_from_fs16_to_mg(dataRawMotionOne[2]) / 1000.0;
         ESP_LOGI(TAG, "LOW Accel [g]: %.3f %.3f %.3f", lowAccel_[0] , lowAccel_[1] , lowAccel_[2] );
     }
 }

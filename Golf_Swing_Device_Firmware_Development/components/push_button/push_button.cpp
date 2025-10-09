@@ -91,16 +91,16 @@ void PushButton::button_task(void *pvParameters)
             const RawAccelVec& accel = button->imu_->getRawLowAccelerationIng();
             const RawGyroVec& gyro = button->imu_->getRawGyroInMdps();
             button->imu_->readings.push_back({// converting to m/s2
-                                                static_cast<float>(accel[0] * 9.8),
-                                                static_cast<float>(accel[1] * 9.8),
-                                                static_cast<float>(accel[2] * 9.8),
+                                                static_cast<float>(accel[0] ),
+                                                static_cast<float>(accel[1] ),
+                                                static_cast<float>(accel[2] ),
                                                 gyro[0],
                                                 gyro[1],
                                                 gyro[2]
                                             });
                                             
             button->vib_->read_vibration_data();
-            vTaskDelay(pdMS_TO_TICKS(25)); // Read every 1s
+            // vTaskDelay(pdMS_TO_TICKS(25)); // Read every 1s
         } else {
             // button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
             if (!write_done) {
