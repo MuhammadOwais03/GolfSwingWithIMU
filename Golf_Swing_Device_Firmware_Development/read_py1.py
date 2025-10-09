@@ -8,6 +8,7 @@ import time
 import pandas as pd
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
+import os 
 
 # GolfIMU class remains unchanged
 class GolfIMU:
@@ -48,7 +49,7 @@ class GolfIMU:
         readings = lines[1:]  # Skip header
         accel_list = []
         gyro_list = []
-        vib = []
+        vib_list = []
 
         for r in readings:
             r = r.strip().split(",")
@@ -64,7 +65,7 @@ class GolfIMU:
                   
                     accel_list.append([ax, ay, az])
                     gyro_list.append([gx, gy, gz])
-                    vib.append(v)
+                    vib_list.append(v)
                 except ValueError as e:
                     print(f"Error parsing line {r}: {e}")
                     continue
@@ -75,12 +76,24 @@ class GolfIMU:
 
         accel = np.array(accel_list) - self.offsets_acc
         gyro = np.array(gyro_list) - self.offsets_gyro
-        return accel, gyro
+        vib = np.array(vib_list) 
+        return accel, gyro, vib
 
     def close(self):
         if self.ser:
             self.ser.close()
             print("Serial connection closed")
+
+def load_raw_csv(file_path="raw.csv"):
+    if not os.path.exists(file_path):
+        return None, None, None
+
+    df = pd.read_csv(file_path)
+    accel_arr = df[["Ax", "Ay", "Az"]].values
+    gyro_arr = df[["Gx", "Gy", "Gz"]].values
+    vib_arr = df["Vib"].values if "Vib" in df.columns else np.zeros(len(accel_arr))
+    t_arr = df["time"].values
+    return accel_arr, gyro_arr, vib_arr, t_arr
 
 def animate_accel(csv_file="accelfilt.csv", out_file="accelfilt.gif"):
     try:
@@ -132,33 +145,47 @@ def animate_accel(csv_file="accelfilt.csv", out_file="accelfilt.gif"):
     plt.show()
 
 if __name__ == "__main__":
-    has_run = False  # Reset has_run to allow running the script
+    has_run = False
     if has_run:
         print("Script already running, exiting to prevent re-entry.")
         exit(0)
     has_run = True
-    imu = GolfIMU()
-    imu.connect()
 
+    imu = GolfIMU()
+    accel_arr = None
+    gyro_arr = None
+    t_arr = None
     fs = 250  # Hz
-    print("Collecting IMU data... Perform the golf swing.")
-    data = imu.read_data()
-    if data and len(data[0]) > 12:
-        accel, gyro = data
-        t = np.linspace(0, len(accel)/fs, len(accel))
-    else:
-        print("Error: Insufficient or no data collected from IMU.")
-        imu.close()
-        exit(1)
+
+    # Try serial connection
+    try:
+        imu.connect()
+        print("Collecting IMU data... Perform the golf swing.")
+        data = imu.read_data()
+        if data and len(data[0]) > 12:
+            accel, gyro, vib = data
+            t = np.linspace(0, len(accel) / fs, len(accel))
+            accel_arr = np.array(accel)
+            gyro_arr = np.array(gyro)
+            vib_arr = np.array(vib)
+            t_arr = np.array(t)
+        else:
+            print("Error: Insufficient or no data collected from IMU.")
+            accel_arr, gyro_arr, vib_arr, t_arr = load_raw_csv()
+    except Exception as e:
+        print(f"Falling back to CSV because serial connection failed: {e}")
+        accel_arr, gyro_arr, vib_arr, t_arr = load_raw_csv()
 
     imu.close()
-    print(f"Collected {len(accel)} samples.")
 
-    accel_arr = np.array(accel)
-    gyro_arr = np.array(gyro)
-    t_arr = np.array(t)
+    if accel_arr is None or len(accel_arr) <= 12:
+        print("Error: Not enough samples to continue.")
+        exit(1)
+
+    print(f"Collected {len(accel_arr)} samples.")
     print("accel_arr shape:", accel_arr.shape)
     print("gyro_arr shape:", gyro_arr.shape)
+    print("vib_arr shape:", vib_arr.shape)
     print("t_arr shape:", t_arr.shape)
 
     if len(accel_arr) <= 12:
@@ -244,7 +271,7 @@ if __name__ == "__main__":
     df_raw = pd.DataFrame({
         "time": t_arr,
         "Ax": accel_arr[:, 0], "Ay": accel_arr[:, 1], "Az": accel_arr[:, 2],
-        "Gx": gyro_arr[:, 0], "Gy": gyro_arr[:, 1], "Gz": gyro_arr[:, 2]
+        "Gx": gyro_arr[:, 0], "Gy": gyro_arr[:, 1], "Gz": gyro_arr[:, 2],"Vib": vib_arr
     })
     df_raw.to_csv("raw.csv", index=False)
 
@@ -312,34 +339,40 @@ if __name__ == "__main__":
     ax5.legend()
     ax5.grid(True)
 
-    # 6: Position vs Time
+    #6 Plot Vibration vs Time
     ax6 = fig.add_subplot(336)
-    ax6.plot(t_arr, pos_shift[:, 0], label="X")
-    ax6.plot(t_arr, pos_shift[:, 1], label="Y")
-    ax6.plot(t_arr, pos_shift[:, 2], label="Z")
-    ax6.set_title("Position vs Time")
+    ax6.plot(t_arr, vib_arr, label="Vibration", color="purple")
+    ax6.set_title("Vibration vs Time")
     ax6.legend()
     ax6.grid(True)
 
-    # 7: Euler Angles
+    # 7: Position vs Time
     ax7 = fig.add_subplot(337)
-    ax7.plot(t_arr, euler_deg[:, 0], label="Yaw")
-    ax7.plot(t_arr, euler_deg[:, 1], label="Pitch")
-    ax7.plot(t_arr, euler_deg[:, 2], label="Roll")
-    ax7.set_title("Euler Angles vs Time")
+    ax7.plot(t_arr, pos_shift[:, 0], label="X")
+    ax7.plot(t_arr, pos_shift[:, 1], label="Y")
+    ax7.plot(t_arr, pos_shift[:, 2], label="Z")
+    ax7.set_title("Position vs Time")
     ax7.legend()
     ax7.grid(True)
+    # 8: Euler Angles
+    ax8 = fig.add_subplot(338)
+    ax8.plot(t_arr, euler_deg[:, 0], label="Yaw")
+    ax8.plot(t_arr, euler_deg[:, 1], label="Pitch")
+    ax8.plot(t_arr, euler_deg[:, 2], label="Roll")
+    ax8.set_title("Euler Angles vs Time")
+    ax8.legend()
+    ax8.grid(True)
 
-    # 8: 3D Trajectory (Positive Axes)
-    ax8 = fig.add_subplot(338, projection="3d")
-    ax8.plot(pos_shift[:, 0], pos_shift[:, 1], pos_shift[:, 2], "b-")
-    ax8.set_xlim([0, max(pos_shift[:, 0]) + 0.1])
-    ax8.set_ylim([0, max(pos_shift[:, 1]) + 0.1])
-    ax8.set_zlim([0, max(pos_shift[:, 2]) + 0.1])
-    ax8.set_title("3D Displacement (Positive Axes)")
-    ax8.set_xlabel("X (m)")
-    ax8.set_ylabel("Y (m)")
-    ax8.set_zlabel("Z (m)")
+    # 9: 3D Trajectory (Positive Axes)
+    ax9 = fig.add_subplot(339, projection="3d")
+    ax9.plot(pos_shift[:, 0], pos_shift[:, 1], pos_shift[:, 2], "b-")
+    ax9.set_xlim([0, max(pos_shift[:, 0]) + 0.1])
+    ax9.set_ylim([0, max(pos_shift[:, 1]) + 0.1])
+    ax9.set_zlim([0, max(pos_shift[:, 2]) + 0.1])
+    ax9.set_title("3D Displacement (Positive Axes)")
+    ax9.set_xlabel("X (m)")
+    ax9.set_ylabel("Y (m)")
+    ax9.set_zlabel("Z (m)")
 
     # Extra subplot: 3D Acceleration (Filtered, Positive Axes)
     fig2 = plt.figure(figsize=(8, 6))
