@@ -102,46 +102,82 @@ def animate_accel(csv_file="accelfilt.csv", out_file="accelfilt.gif"):
         print(f"Error: {csv_file} not found. Ensure data is saved correctly.")
         return
 
+    # === Extract filtered acceleration ===
     t = df["time"].values
     ax = df["Ax_filt"].values
     ay = df["Ay_filt"].values
     az = df["Az_filt"].values
 
-    # Remove axis inversions to keep positive orientation
-    # az = (az - 9.8) * -1  # Removed to avoid flipping Z
-    # ay *= -1              # Removed to avoid flipping Y
+    # === Optional: speed & angle ===
+    speed = np.sqrt(ax**2 + ay**2 + az**2)
+    angle = np.degrees(np.arctan2(ay, ax))  # horizontal angle
 
-    # Shift data to positive quadrant
+    # === Shift values to positive quadrant ===
     ax_shift = ax - min(ax) if min(ax) < 0 else ax
     ay_shift = ay - min(ay) if min(ay) < 0 else ay
     az_shift = az - min(az) if min(az) < 0 else az
 
-    fig = plt.figure(figsize=(8, 6))
-    ax3d = fig.add_subplot(111, projection="3d")
+    # === Create 4 subplots (Top, Rear, Front, Full 3D) ===
+    fig = plt.figure(figsize=(20, 6))
+    ax_top   = fig.add_subplot(141, projection='3d')
+    ax_rear  = fig.add_subplot(142, projection='3d')
+    ax_front = fig.add_subplot(143, projection='3d')
+    ax_full  = fig.add_subplot(144, projection='3d')
 
-    line, = ax3d.plot([], [], [], "r-", lw=2, label="Filtered Accel")
-    point, = ax3d.plot([], [], [], "ko")
+    # Common axis limits
+    xlim = [0, max(ax_shift) + 0.1]
+    ylim = [0, max(ay_shift) + 0.1]
+    zlim = [0, max(az_shift) + 0.1]
 
-    # Set positive axis limits
-    ax3d.set_xlim([0, max(ax_shift) + 0.1])
-    ax3d.set_ylim([0, max(ay_shift) + 0.1])
-    ax3d.set_zlim([0, max(az_shift) + 0.1])
-    ax3d.set_xlabel("Ax (m/s²)")
-    ax3d.set_ylabel("Ay (m/s²)")
-    ax3d.set_zlabel("Az (m/s²)")
-    ax3d.set_title("3D Filtered Acceleration Trajectory (Positive Axes)")
-    ax3d.legend()
+    for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
+        ax_view.set_xlim(xlim)
+        ax_view.set_ylim(ylim)
+        ax_view.set_zlim(zlim)
+        ax_view.set_xlabel("Ax")
+        ax_view.set_ylabel("Ay")
+        ax_view.set_zlabel("Az")
 
+    # Different view angles
+    ax_top.view_init(elev=90, azim=-90)   # Top
+    ax_rear.view_init(elev=0, azim=180)   # Rear
+    ax_front.view_init(elev=0, azim=0)    # Front
+    ax_full.view_init(elev=30, azim=-60)  # Full 3D (angled)
+
+    # Titles
+    ax_top.set_title("Top View")
+    ax_rear.set_title("Rear View")
+    ax_front.set_title("Front View")
+    ax_full.set_title("3D Full Trajectory")
+
+    # Trajectory line and point for each view
+    lines, points = [], []
+    for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
+        line, = ax_view.plot([], [], [], "r-", lw=2, label="Filtered Accel")
+        point, = ax_view.plot([], [], [], "ko")
+        lines.append(line)
+        points.append(point)
+
+    ax_full.legend()
+
+    # === Text box for Speed & Angle ===
+    text_box = fig.text(0.5, 0.02, "", fontsize=12, ha='center', va='center')
+
+    # === Animation Update Function ===
     def update(i):
-        line.set_data(ax_shift[:i], ay_shift[:i])
-        line.set_3d_properties(az_shift[:i])
-        point.set_data([ax_shift[i]], [ay_shift[i]])
-        point.set_3d_properties([az_shift[i]])
-        return line, point
+        for line, point in zip(lines, points):
+            line.set_data(ax_shift[:i], ay_shift[:i])
+            line.set_3d_properties(az_shift[:i])
+            point.set_data([ax_shift[i]], [ay_shift[i]])
+            point.set_3d_properties([az_shift[i]])
+
+        text_box.set_text(
+            f"Time: {t[i]:.2f}s  |  Speed: {speed[i]:.2f} m/s  |  Angle: {angle[i]:.1f}°"
+        )
+        return lines + points
 
     ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=True)
     ani.save(out_file, writer="pillow")
-    print(f"Animation saved as {out_file}")
+    print(f"[OK] Animation saved as {out_file}")
     plt.show()
 
 if __name__ == "__main__":
