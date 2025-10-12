@@ -84,7 +84,7 @@ void FlashFile::read_file()
 
 
 
-void FlashFile::write_file(const std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings) {
+void FlashFile::write_file(const std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings, const std::vector<std::vector<double>> eulerAngles) {
     // Open file for appending (creates if not exists)
     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
     if (f == nullptr) {
@@ -96,7 +96,7 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
     fseek(f, 0, SEEK_END);
     long file_size = ftell(f);
     if (file_size == 0) {
-        fprintf(f, "ax,ay,az,gx,gy,gz,vib\n");
+        fprintf(f, "lax,lay,laz,hax,hay,haz,gx,gy,gz,pitch,roll,yaw,vib\n");
     }
 
     // Sanity check: expect exactly 6 values
@@ -116,6 +116,10 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
         ESP_LOGW(TAG, "vib_readings size (%zu) does not match readings size (%zu)", vib_readings.size(), readings.size());
     }
 
+    if (eulerAngles.size() != readings.size()) {
+        ESP_LOGW(TAG, "eulerAngles size (%zu) does not match readings size (%zu)", eulerAngles.size(), readings.size());
+    }
+
     int c = 1;
 
     for (size_t i = 0; i < readings.size(); ++i) {
@@ -123,10 +127,12 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
         float vib = (i < vib_readings.size()) ? vib_readings[i] : 0.0f;
 
         // Write each reading as a CSV row with vib_reading at the end
-        if (reading.size() == 6) {
-            fprintf(f, "%f,%f,%f,%f,%f,%f,%f\n",
+        if (reading.size() == 9) {
+            fprintf(f, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
                     reading[0], reading[1], reading[2],
                     reading[3], reading[4], reading[5],
+                    reading[6], reading[7], reading[8],
+                    eulerAngles[i][0], eulerAngles[i][1], eulerAngles[i][2],
                     vib);
                     c++;
         } else {
@@ -141,56 +147,6 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
 }
 
-// // This version only saves readings (no vib), as requested previously.
-// void FlashFile::write_file_new(const std::vector<std::vector<float>> &readings)
-// {
-//     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
-//     if (f == nullptr) {
-//         ESP_LOGE(TAG, "Failed to open file for writing");
-//         return;
-//     }
-
-//     // Check if file is empty → write header
-//     fseek(f, 0, SEEK_END);
-//     long file_size = ftell(f);
-//     if (file_size == 0) {
-//         fprintf(f, "ax,ay,az,gx,gy,gz\n");
-//     }
-
-//     for (const auto& reading : readings) {
-//         if (reading.size() == 6) {
-//             fprintf(f, "%f,%f,%f,%f,%f,%f\n",
-//                     reading[0], reading[1], reading[2],
-//                     reading[3], reading[4], reading[5]);
-//         } else {
-//             ESP_LOGW(TAG, "Skipping row with unexpected size: %zu", reading.size());
-//         }
-//     }
-
-//     fclose(f);
-//     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
-// }
-
-// void FlashFile::clear_file() {
-//     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "w");
-//     if (f == nullptr) {
-//         ESP_LOGE(TAG, "Failed to open file for clearing");
-//         return;
-//     }
-//     //  // Count lines
-//     // int line_count = 0;
-//     // char buf[256];
-//     // while (fgets(buf, sizeof(buf), f)) {
-//     //     line_count++;
-//     // }
-//     // rewind(f); // Reset file pointer to beginning
-
-//     // ESP_LOGI("Flash", "Number of lines in file: %d", line_count);
-
-//     ESP_LOGI("Flash", "Name of file: %s", (BASEPATH + FILENAME).c_str() );
-//     fclose(f);
-//     ESP_LOGI(TAG, "File %s%s cleared", BASEPATH.c_str(), FILENAME.c_str());
-// }
 
 void FlashFile::clear_file() {
     const std::string filepath = BASEPATH + FILENAME;
@@ -213,12 +169,3 @@ void FlashFile::clear_file() {
 }
 
 
-// void FlashFile::clear_file() {
-//     std::string path = BASEPATH + FILENAME;
-
-//     if (remove(path.c_str()) == 0) {
-//         ESP_LOGI(TAG, "File %s%s deleted successfully", BASEPATH.c_str(), FILENAME.c_str());
-//     } else {
-//         ESP_LOGE(TAG, "Failed to delete file %s%s", BASEPATH.c_str(), FILENAME.c_str());
-//     }
-// }

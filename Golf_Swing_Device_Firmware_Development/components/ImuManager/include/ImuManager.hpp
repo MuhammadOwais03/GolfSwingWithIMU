@@ -12,12 +12,14 @@
 #define BOOT_TIME 10 // ms
 #define POLL_INTERVAL 1000 // ms
 #define CNT_FOR_OUTPUT 100
+#define    FIFO_WATERMARK       128
 
 using RawAccelVec         = std::vector<float>;
 using RawGyroVec          = std::vector<float>;
 using QuaternionVec       = std::vector<float>;
 using Temperature         = float;
 using EulerAngles         = double;
+using Angles             = std::vector<std::vector<double>>;
 using TimeInSeconds       = double;
 using SpiMode             = std::uint8_t;
 using Flag                = bool;
@@ -38,6 +40,7 @@ class ImuManager
 {
 private:
     static const Character* TAG; 
+    static char tx_buffer[1000];
     const gpio_num_t cs_, sck_, miso_, mosi_;
     const SpiMode mode_;
     RawAccelVec lowAccel_{3, 0.0f};
@@ -55,8 +58,15 @@ private:
     static FilterSettingMask filterSettingMask;
     u8 whoamI;
     Character txBuffer[256];
+    u8 fifoTag = 0;
+    u16 quatSplit[2][2] = {{0}};  // Buffer for split half-floats: [0][0/1]=X/Y, [1][0/1]=Z/W
+    Flag quatPart0Received = false;
+    Flag sflpInitialized = false;
+    lsm6dsv320x_fifo_status_t fifo_status;
 
     Flag initSpi();
+    void initSFLP();
+    int32_t writeEmbeddedReg(uint8_t addr, uint8_t val);
     static int32_t spiRead(void* handle, u8 reg, u8* bufp, u16 len);
     static int32_t spiWrite(void* handle, u8 reg, const u8* bufp, u16 len);
     static void spidelay(u32 ms);
@@ -88,9 +98,10 @@ public:
     const RawAccelVec&  getRawHighAccelerationIng() const { return highAccel_; }
     const RawGyroVec&  getRawGyroInMdps()          const { return dpsGyro_; }
     Temperature getTemperatureInDegreeC() const { return tempInC_; }
-    QuaternionVec getQuaternions() const { return quat_; }
-    EulerAngles getPitch() const { return pitch_; }
-    EulerAngles getRoll() const { return roll_; }
-    EulerAngles getYaw() const { return yaw_; }
+    const QuaternionVec& getQuaternions() const { return quat_; }
+    const EulerAngles& getPitch() const { return pitch_; }
+    const EulerAngles& getRoll() const { return roll_; }
+    const EulerAngles& getYaw() const { return yaw_; }
     std::vector<std::vector<float>> readings{};
+    Angles eulerAngles_{}; // pitch, roll, yaw
 };

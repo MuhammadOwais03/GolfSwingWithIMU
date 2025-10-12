@@ -72,6 +72,7 @@ void PushButton::button_task(void *pvParameters)
                     blinker_on_time = now; // Record when blinker turned on
                     button->imu_->readings.clear(); // Clear IMU readings when blinker turns on
                     button->vib_->vib_readings.clear(); // Clear vibration readings when blinker turns on
+                    button->imu_->eulerAngles_.clear(); // Clear Euler angles when blinker turns on
                 }
                 last_press = now;
             }
@@ -89,15 +90,24 @@ void PushButton::button_task(void *pvParameters)
             button->imu_->loop();
 
             const RawAccelVec& accel = button->imu_->getRawLowAccelerationIng();
+            const RawAccelVec& high_accel = button->imu_->getRawHighAccelerationIng();
             const RawGyroVec& gyro = button->imu_->getRawGyroInMdps();
+            const EulerAngles &pitch = button->imu_->getPitch();
+            const EulerAngles &roll = button->imu_->getRoll();
+            const EulerAngles &yaw = button->imu_->getYaw();
             button->imu_->readings.push_back({// converting to m/s2
                                                 static_cast<float>(accel[0] ),
                                                 static_cast<float>(accel[1] ),
                                                 static_cast<float>(accel[2] ),
+                                                static_cast<float>(high_accel[0] ),
+                                                static_cast<float>(high_accel[0] ),
+                                                static_cast<float>(high_accel[0] ),
                                                 gyro[0],
                                                 gyro[1],
                                                 gyro[2]
                                             });
+            ESP_LOGI("PushButton", "Pitch: %.2f | Roll: %.2f | Yaw: %.2f",pitch, roll, yaw);
+            button->imu_->eulerAngles_.push_back({pitch, roll, yaw});
                                             
             button->vib_->read_vibration_data();
             // vTaskDelay(pdMS_TO_TICKS(25)); // Read every 1s
@@ -105,7 +115,7 @@ void PushButton::button_task(void *pvParameters)
             // button->flash_->write_file(button->mpu_->readings, button->vib_->vib_readings);
             if (!write_done) {
                 button->flash_->clear_file();
-                button->flash_->write_file(button->imu_->readings, button->vib_->vib_readings);
+                button->flash_->write_file(button->imu_->readings, button->vib_->vib_readings, button->imu_->eulerAngles_);
                 button->flash_->read_file();
                 write_done = true;
             }            

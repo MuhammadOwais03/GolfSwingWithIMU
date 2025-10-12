@@ -13,15 +13,15 @@ import os
 # GolfIMU class remains unchanged
 class GolfIMU:
     def __init__(self):
-        self.PORT = 'COM3'  # Change to your serial port
+        self.PORT = '/dev/ttyUSB0'  # Change to your serial port
         self.BAUD = 115200
         self.TIMEOUT = 2
         self.CALIBRATION_SAMPLES = 20
-        self.ACCEL_IN_MG = True
+        self.imu_low_accel_IN_MG = True
         self.GRAVITY = 9.81
         self.ser = None
         self.offsets_acc = np.zeros(3)
-        self.offsets_gyro = np.zeros(3)
+        self.offsets_imu_gyro = np.zeros(3)
 
     def connect(self):
         try:
@@ -31,10 +31,62 @@ class GolfIMU:
             print(f"Serial connection failed: {e}")
             raise
 
+    # def read_data(self):
+    #     self.ser.write(b"READ_FILE\r\n")
+    #     file_content = ""
+    #     count = 0
+    #     while True:
+    #         line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+    #         print(f"{count}: hello", line)
+    #         count += 1
+    #         if line == "EOF":
+    #             break
+    #         if line.startswith("I (") or line.startswith("E ("):
+    #             continue
+    #         file_content += line + "\n"
+
+    #     lines = file_content.strip().split("\n")
+    #     readings = lines[1:]  # Skip header
+    #     imu_low_accel_list = []
+    #     imu_gyro_list = []
+    #     imu_vibration_list = []
+
+    #     for r in readings:
+    #         r = r.strip().split(",")
+    #         if len(r) == 7:
+    #             try:
+    #                 # ax = float(r[1]) * -1.0
+    #                 # ay = (float(r[0]) + 20.0) * 1.0
+    #                 # az = float(r[2])*  -1.0
+    #                 ax = float(r[1]) * 1.0
+    #                 ay = (float(r[0])+1) * -1
+    #                 az = float(r[2])*  -1.0
+    #                 gx = float(r[3]) 
+    #                 gy = float(r[4]) 
+    #                 gz = float(r[5]) 
+    #                 v = float(r[6])
+                  
+    #                 imu_low_accel_list.append([ax, ay, az])
+    #                 imu_gyro_list.append([gx, gy, gz])
+    #                 imu_vibration_list.append(v)
+    #             except ValueError as e:
+    #                 print(f"Error parsing line {r}: {e}")
+    #                 continue
+
+    #     if not imu_low_accel_list:
+    #         print("Warning: No valid imu_low_accelerometer data collected.")
+    #         return np.array([]), np.array([])
+
+    #     imu_low_accel = np.array(imu_low_accel_list) - self.offsets_acc
+    #     imu_gyro = np.array(imu_gyro_list) - self.offsets_imu_gyro
+    #     imu_vibration = np.array(imu_vibration_list) 
+    #     return imu_low_accel, imu_gyro, imu_vibration
+
     def read_data(self):
         self.ser.write(b"READ_FILE\r\n")
         file_content = ""
         count = 0
+
         while True:
             line = self.ser.readline().decode("utf-8", errors="ignore").strip()
             print(f"{count}: ", line)
@@ -47,41 +99,52 @@ class GolfIMU:
 
         lines = file_content.strip().split("\n")
         readings = lines[1:]  # Skip header
-        accel_list = []
-        gyro_list = []
-        vib_list = []
+
+        imu_low_accel = []   # [lax, lay, laz]
+        imu_high_accel = []  # [hax, hay, haz]
+        imu_gyro = []        # [gx, gy, gz]
+        imu_euler = []       # [pitch, roll, yaw]
+        imu_vibration = []   # [imu_vibration]
 
         for r in readings:
             r = r.strip().split(",")
-            if len(r) == 7:
+            if len(r) == 13:
                 try:
-                    # ax = float(r[1]) * -1.0
-                    # ay = (float(r[0]) + 20.0) * 1.0
-                    # az = float(r[2])*  -1.0
-                    ax = float(r[1]) * 1.0
-                    ay = (float(r[0])+1) * -1
-                    az = float(r[2])*  -1.0
-                    gx = float(r[3]) 
-                    gy = float(r[4]) 
-                    gz = float(r[5]) 
-                    v = float(r[6])
-                  
-                    accel_list.append([ax, ay, az])
-                    gyro_list.append([gx, gy, gz])
-                    vib_list.append(v)
+                    lax, lay, laz = float(r[0]), float(r[1]) * -1, float(r[2]) * -1
+                    hax, hay, haz = float(r[3]), float(r[4]), float(r[5])
+                    gx, gy, gz = float(r[6]), float(r[7]), float(r[8])
+                    pitch, roll, yaw = float(r[9]), float(r[10]), float(r[11])
+                    vib = float(r[12])
+
+                    imu_low_accel.append([lax, lay, laz])
+                    imu_high_accel.append([hax, hay, haz])
+                    imu_gyro.append([gx, gy, gz])
+                    imu_euler.append([pitch, roll, yaw])
+                    imu_vibration.append(vib)
+
                 except ValueError as e:
                     print(f"Error parsing line {r}: {e}")
                     continue
 
-        if not accel_list:
-            print("Warning: No valid accelerometer data collected.")
-            return np.array([]), np.array([])
+        # --- Convert to numpy arrays for easy processing ---
+        imu_low_accel = np.array(imu_low_accel)
+        imu_high_accel = np.array(imu_high_accel)
+        imu_gyro = np.array(imu_gyro)
+        imu_euler = np.array(imu_euler)
+        imu_vibration = np.array(imu_vibration)
 
-        accel = np.array(accel_list) - self.offsets_acc
-        gyro = np.array(gyro_list) - self.offsets_gyro
-        vib = np.array(vib_list) 
-        return accel, gyro, vib
+        if imu_low_accel.size == 0:
+            print("Warning: No valid IMU data collected.")
+            return np.array([]), np.array([]), np.array([]), np.array([]), np.array([])
 
+        # Optionally subtract offsets if you have them
+        imu_low_accel -= self.offsets_acc
+        imu_gyro -= self.offsets_imu_gyro
+
+        return imu_low_accel, imu_high_accel, imu_gyro, imu_euler, imu_vibration
+
+    
+    
     def close(self):
         if self.ser:
             self.ser.close()
@@ -92,21 +155,23 @@ def load_raw_csv(file_path="raw.csv"):
         return None, None, None
 
     df = pd.read_csv(file_path)
-    accel_arr = df[["Ax", "Ay", "Az"]].values
-    gyro_arr = df[["Gx", "Gy", "Gz"]].values
-    vib_arr = df["vib"].values if "vib" in df.columns else np.zeros(len(accel_arr))
+    imu_low_accel_arr = df[["low_ax", "low_ay", "low_az"]].values
+    imu_high_accel_arr = df[["high_ax", "high_ay", "high_az"]].values
+    imu_euler = df[["pitch", "roll", "yaw"]].values
+    imu_gyro = df[["Gx", "Gy", "Gz"]].values
+    imu_vibration_arr = df["imu_vibration"].values if "imu_vibration" in df.columns else np.zeros(len(imu_low_accel_arr))
     t_arr = df["time"].values
-    return accel_arr, gyro_arr, vib_arr, t_arr
+    return imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr
 
 
-def plot_accel_trajectory(csv_file="accelfilt.csv"):
+def plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv"):
     try:
         df = pd.read_csv(csv_file)
     except FileNotFoundError:
         print(f"Error: {csv_file} not found.")
         return
 
-    # === Extract filtered acceleration ===
+    # === Extract filtered imu_low_acceleration ===
     t = df["time"].values
     ax = df["Ax_filt"].values
     ay = df["Ay_filt"].values
@@ -163,14 +228,14 @@ def plot_accel_trajectory(csv_file="accelfilt.csv"):
     plt.tight_layout()
     plt.show()
 
-# def animate_accel(csv_file="accelfilt.csv", out_file="accelfilt.gif"):
+# def animate_imu_low_accel(csv_file="imu_low_accelfilt.csv", out_file="imu_low_accelfilt.gif"):
 #     try:
 #         df = pd.read_csv(csv_file)
 #     except FileNotFoundError:
 #         print(f"Error: {csv_file} not found. Ensure data is saved correctly.")
 #         return
 
-#     # === Extract filtered acceleration ===
+#     # === Extract filtered imu_low_acceleration ===
 #     t = df["time"].values
 #     ax = df["Ax_filt"].values
 #     ay = df["Ay_filt"].values
@@ -220,7 +285,7 @@ def plot_accel_trajectory(csv_file="accelfilt.csv"):
 #     # Trajectory line and point for each view
 #     lines, points = [], []
 #     for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
-#         line, = ax_view.plot([], [], [], "r-", lw=2, label="Filtered Accel")
+#         line, = ax_view.plot([], [], [], "r-", lw=2, label="Filtered imu_low_accel")
 #         point, = ax_view.plot([], [], [], "ko")
 #         lines.append(line)
 #         points.append(point)
@@ -256,8 +321,8 @@ if __name__ == "__main__":
     has_run = True
 
     imu = GolfIMU()
-    accel_arr = None
-    gyro_arr = None
+    imu_low_accel_arr = None
+    imu_gyro = None
     t_arr = None
     fs = 800  # Hz
 
@@ -266,46 +331,44 @@ if __name__ == "__main__":
         imu.connect()
         print("Collecting IMU data... Perform the golf swing.")
         data = imu.read_data()
+        print(data)
         if data and len(data[0]) > 12:
-            accel, gyro, vib = data
-            t = np.linspace(0, len(accel) / fs, len(accel))
-            accel_arr = np.array(accel)
-            gyro_arr = np.array(gyro)
-            vib_arr = np.array(vib)
+            imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr = data
+            t = np.linspace(0, len(imu_low_accel_arr) / fs, len(imu_low_accel_arr))
             t_arr = np.array(t)
         else:
             print("Error: Insufficient or no data collected from IMU.")
-            accel_arr, gyro_arr, vib_arr, t_arr = load_raw_csv()
+            imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr = load_raw_csv()
     except Exception as e:
         print(f"Falling back to CSV because serial connection failed: {e}")
-        accel_arr, gyro_arr, vib_arr, t_arr = load_raw_csv()
+        imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr = load_raw_csv()
 
     imu.close()
 
-    if accel_arr is None or len(accel_arr) <= 12:
+    if imu_low_accel_arr is None or len(imu_low_accel_arr) <= 12:
         print("Error: Not enough samples to continue.")
         exit(1)
 
-    print(f"Collected {len(accel_arr)} samples.")
-    print("accel_arr shape:", accel_arr.shape)
-    print("gyro_arr shape:", gyro_arr.shape)
-    print("vib_arr shape:", vib_arr.shape)
+    print(f"Collected {len(imu_low_accel_arr)} samples.")
+    print("imu_low_accel_arr shape:", imu_low_accel_arr.shape)
+    print("imu_gyro shape:", imu_gyro.shape)
+    print("imu_vibration_arr shape:", imu_vibration_arr.shape)
     print("t_arr shape:", t_arr.shape)
 
-    if len(accel_arr) <= 12:
+    if len(imu_low_accel_arr) <= 12:
         print("Error: Not enough samples for filtering.")
         exit(1)
 
     dt = np.mean(np.diff(t_arr))
 
     # Low-pass filter
-    b, a = signal.butter(3, 20 / (fs / 2), btype='low')
-    ax_filt = signal.filtfilt(b, a, accel_arr[:, 0], padlen=min(3, len(accel_arr)-1))
-    ay_filt = signal.filtfilt(b, a, accel_arr[:, 1], padlen=min(3, len(accel_arr)-1))
-    az_filt = signal.filtfilt(b, a, accel_arr[:, 2], padlen=min(3, len(accel_arr)-1))
-    gx_filt = signal.filtfilt(b, a, gyro_arr[:, 0], padlen=min(3, len(gyro_arr)-1))
-    gy_filt = signal.filtfilt(b, a, gyro_arr[:, 1], padlen=min(3, len(gyro_arr)-1))
-    gz_filt = signal.filtfilt(b, a, gyro_arr[:, 2], padlen=min(3, len(gyro_arr)-1))
+    b, a = signal.butter(3, 6 / (fs / 2), btype='low')
+    ax_filt = signal.filtfilt(b, a, imu_low_accel_arr[:, 0], padlen=min(3, len(imu_low_accel_arr)-1))
+    ay_filt = signal.filtfilt(b, a, imu_low_accel_arr[:, 1], padlen=min(3, len(imu_low_accel_arr)-1))
+    az_filt = signal.filtfilt(b, a, imu_low_accel_arr[:, 2], padlen=min(3, len(imu_low_accel_arr)-1))
+    gx_filt = signal.filtfilt(b, a, imu_gyro[:, 0], padlen=min(3, len(imu_gyro)-1))
+    gy_filt = signal.filtfilt(b, a, imu_gyro[:, 1], padlen=min(3, len(imu_gyro)-1))
+    gz_filt = signal.filtfilt(b, a, imu_gyro[:, 2], padlen=min(3, len(imu_gyro)-1))
 
     # Quaternion integration
     q = np.zeros((len(t_arr), 4))
@@ -326,15 +389,15 @@ if __name__ == "__main__":
         R_mats[i] = rot.as_matrix()
         euler_deg[i] = rot.as_euler("zyx", degrees=True)
 
-    # Rotate accel into global frame
-    accel_global = np.zeros_like(accel_arr)
+    # Rotate imu_low_accel into global frame
+    imu_low_accel_global = np.zeros_like(imu_low_accel_arr)
     for i in range(len(t_arr)):
         rot = R.from_matrix(R_mats[i])
-        accel_global[i] = rot.apply([ax_filt[i], ay_filt[i], az_filt[i]])
-    accel_global[:, 2] -= imu.GRAVITY
+        imu_low_accel_global[i] = rot.apply([ax_filt[i], ay_filt[i], az_filt[i]])
+    imu_low_accel_global[:, 2] -= imu.GRAVITY
 
     # Stationary detection
-    acc_mag = np.linalg.norm(accel_arr, axis=1)
+    acc_mag = np.linalg.norm(imu_low_accel_arr, axis=1)
     b, a = signal.butter(1, 0.001 / (fs / 2), "high")
     acc_mag_filt = signal.filtfilt(b, a, acc_mag, padlen=min(3, len(acc_mag)-1))
     acc_mag_filt = np.abs(acc_mag_filt)
@@ -343,9 +406,9 @@ if __name__ == "__main__":
     stationary = acc_mag_filt < 0.06
 
     # Velocity with ZUPT
-    vel_global = np.zeros_like(accel_global)
+    vel_global = np.zeros_like(imu_low_accel_global)
     for i in range(1, len(t_arr)):
-        vel_global[i] = vel_global[i - 1] + accel_global[i] * dt
+        vel_global[i] = vel_global[i - 1] + imu_low_accel_global[i] * dt
         if stationary[i]:
             vel_global[i] = [0, 0, 0]
 
@@ -371,11 +434,13 @@ if __name__ == "__main__":
     pos_shift[:, 1] = pos_global[:, 1] - min(pos_global[:, 1]) if min(pos_global[:, 1]) < 0 else pos_global[:, 1]
     pos_shift[:, 2] = pos_global[:, 2] - min(pos_global[:, 2]) if min(pos_global[:, 2]) < 0 else pos_global[:, 2]
 
-    # Save CSVs
+    # # Save CSVs
     df_raw = pd.DataFrame({
         "time": t_arr,
-        "Ax": accel_arr[:, 0], "Ay": accel_arr[:, 1], "Az": accel_arr[:, 2],
-        "Gx": gyro_arr[:, 0], "Gy": gyro_arr[:, 1], "Gz": gyro_arr[:, 2],"vib": vib_arr
+        "low_ax": imu_low_accel_arr[:, 0], "low_ay": imu_low_accel_arr[:, 1], "low_az": imu_low_accel_arr[:, 2],
+        "high_ax": imu_high_accel_arr[:, 0], "high_ay": imu_high_accel_arr[:, 1], "high_az": imu_high_accel_arr[:, 2],
+        "pitch": imu_euler[:, 0], "roll": imu_euler[:, 1], "yaw": imu_euler[:, 2],
+        "Gx": imu_gyro[:, 0], "Gy": imu_gyro[:, 1], "Gz": imu_gyro[:, 2],"imu_vibration": imu_vibration_arr
     })
     df_raw.to_csv("raw.csv", index=False)
 
@@ -387,50 +452,50 @@ if __name__ == "__main__":
     })
     df_pos.to_csv("pos.csv", index=False)
 
-    df_accel_filt = pd.DataFrame({
+    df_imu_low_accel_filt = pd.DataFrame({
         "time": t_arr,
         "Ax_filt": ax_filt,
         "Ay_filt": ay_filt,
         "Az_filt": az_filt
     })
-    df_accel_filt.to_csv("accelfilt.csv", index=False)
+    df_imu_low_accel_filt.to_csv("imu_low_accelfilt.csv", index=False)
 
     # Plots
     fig = plt.figure(figsize=(16, 12))
 
-    # 1: Raw Acceleration
+    # 1: Raw imu_low_acceleration
     ax1 = fig.add_subplot(331)
-    ax1.plot(t_arr, accel_arr[:, 0], label="Ax")
-    ax1.plot(t_arr, accel_arr[:, 1], label="Ay")
-    ax1.plot(t_arr, accel_arr[:, 2], label="Az")
-    ax1.set_title("Raw Acceleration (m/s²)")
+    ax1.plot(t_arr, imu_low_accel_arr[:, 0], label="Ax")
+    ax1.plot(t_arr, imu_low_accel_arr[:, 1], label="Ay")
+    ax1.plot(t_arr, imu_low_accel_arr[:, 2], label="Az")
+    ax1.set_title("Raw imu_low_acceleration (m/s²)")
     ax1.legend()
     ax1.grid(True)
 
-    # 2: Raw Gyroscope
+    # 2: Raw imu_gyroscope
     ax2 = fig.add_subplot(332)
-    ax2.plot(t_arr, gyro_arr[:, 0], label="Gx")
-    ax2.plot(t_arr, gyro_arr[:, 1], label="Gy")
-    ax2.plot(t_arr, gyro_arr[:, 2], label="Gz")
-    ax2.set_title("Raw Gyroscope (rad/s)")
+    ax2.plot(t_arr, imu_gyro[:, 0], label="Gx")
+    ax2.plot(t_arr, imu_gyro[:, 1], label="Gy")
+    ax2.plot(t_arr, imu_gyro[:, 2], label="Gz")
+    ax2.set_title("Raw imu_gyroscope (rad/s)")
     ax2.legend()
     ax2.grid(True)
 
-    # 3: Filtered Acceleration
+    # 3: Filtered imu_low_acceleration
     ax3 = fig.add_subplot(333)
     ax3.plot(t_arr, ax_filt, label="Ax")
     ax3.plot(t_arr, ay_filt, label="Ay")
     ax3.plot(t_arr, az_filt, label="Az")
-    ax3.set_title("Filtered Acceleration (m/s²)")
+    ax3.set_title("Filtered imu_low_acceleration (m/s²)")
     ax3.legend()
     ax3.grid(True)
 
-    # 4: Filtered Gyroscope
+    # 4: Filtered imu_gyroscope
     ax4 = fig.add_subplot(334)
     ax4.plot(t_arr, gx_filt, label="Gx")
     ax4.plot(t_arr, gy_filt, label="Gy")
     ax4.plot(t_arr, gz_filt, label="Gz")
-    ax4.set_title("Filtered Gyroscope (rad/s)")
+    ax4.set_title("Filtered imu_gyroscope (rad/s)")
     ax4.legend()
     ax4.grid(True)
 
@@ -443,10 +508,10 @@ if __name__ == "__main__":
     ax5.legend()
     ax5.grid(True)
 
-    #6 Plot vibration vs Time
+    #6 Plot imu_vibrationration vs Time
     ax6 = fig.add_subplot(336)
-    ax6.plot(t_arr, vib_arr, label="vibration", color="purple")
-    ax6.set_title("vibration vs Time")
+    ax6.plot(t_arr, imu_vibration_arr, label="imu_vibrationration", color="purple")
+    ax6.set_title("imu_vibrationration vs Time")
     ax6.legend()
     ax6.grid(True)
 
@@ -478,7 +543,7 @@ if __name__ == "__main__":
     ax9.set_ylabel("Y (m)")
     ax9.set_zlabel("Z (m)")
 
-    # Extra subplot: 3D Acceleration (Filtered, Positive Axes)
+    # Extra subplot: 3D imu_low_acceleration (Filtered, Positive Axes)
     fig2 = plt.figure(figsize=(8, 6))
     ax9 = fig2.add_subplot(111, projection="3d")
     ax_filt_shift = ax_filt - min(ax_filt) if min(ax_filt) < 0 else ax_filt
@@ -488,7 +553,7 @@ if __name__ == "__main__":
     ax9.set_xlim([0, max(ax_filt_shift) + 0.1])
     ax9.set_ylim([0, max(ay_filt_shift) + 0.1])
     ax9.set_zlim([0, max(az_filt_shift) + 0.1])
-    ax9.set_title("3D Acceleration (Filtered, Positive Axes)")
+    ax9.set_title("3D imu_low_acceleration (Filtered, Positive Axes)")
     ax9.set_xlabel("Ax (m/s²)")
     ax9.set_ylabel("Ay (m/s²)")
     ax9.set_zlabel("Az (m/s²)")
@@ -496,6 +561,6 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
-    # animate_accel("accelfilt.csv", "accelfilt.gif")
-    plot_accel_trajectory(csv_file="accelfilt.csv")
+    # animate_imu_low_accel("imu_low_accelfilt.csv", "imu_low_accelfilt.gif")
+    plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv")
 
