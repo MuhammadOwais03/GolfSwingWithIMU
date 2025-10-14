@@ -510,10 +510,13 @@ if __name__ == "__main__":
 
     #6 Plot imu_vibrationration vs Time
     ax6 = fig.add_subplot(336)
-    ax6.plot(t_arr, imu_vibration_arr, label="imu_vibrationration", color="purple")
+    ax6.plot(t_arr, imu_high_accel_arr[:, 0], label="Hax", linewidth=1.5)
+    ax6.plot(t_arr, imu_high_accel_arr[:, 1], label="Hay", linewidth=1.5)
+    ax6.plot(t_arr, imu_high_accel_arr[:, 2], label="Haz", linewidth=1.5)
     ax6.set_title("imu_vibrationration vs Time")
     ax6.legend()
     ax6.grid(True)
+    
 
     # 7: Position vs Time
     ax7 = fig.add_subplot(337)
@@ -532,16 +535,26 @@ if __name__ == "__main__":
     ax8.legend()
     ax8.grid(True)
 
-    # 9: 3D Trajectory (Positive Axes)
-    ax9 = fig.add_subplot(339, projection="3d")
-    ax9.plot(pos_shift[:, 0], pos_shift[:, 1], pos_shift[:, 2], "b-")
-    ax9.set_xlim([0, max(pos_shift[:, 0]) + 0.1])
-    ax9.set_ylim([0, max(pos_shift[:, 1]) + 0.1])
-    ax9.set_zlim([0, max(pos_shift[:, 2]) + 0.1])
-    ax9.set_title("3D Displacement (Positive Axes)")
-    ax9.set_xlabel("X (m)")
-    ax9.set_ylabel("Y (m)")
-    ax9.set_zlabel("Z (m)")
+
+    # === Plot Euler Angles ===
+    ax9 = fig.add_subplot(339)
+    ax9.plot(t_arr, imu_euler[:, 0], label="Pitch", linewidth=1.5)
+    ax9.plot(t_arr, imu_euler[:, 1], label="Roll", linewidth=1.5)
+    ax9.plot(t_arr, imu_euler[:, 2], label="Yaw", linewidth=1.5)
+    ax9.set_title("Euler Angles vs Time")
+    ax9.legend()
+    ax9.grid(True)
+
+    # # 9: 3D Trajectory (Positive Axes)
+    # ax9 = fig.add_subplot(339, projection="3d")
+    # ax9.plot(pos_shift[:, 0], pos_shift[:, 1], pos_shift[:, 2], "b-")
+    # ax9.set_xlim([0, max(pos_shift[:, 0]) + 0.1])
+    # ax9.set_ylim([0, max(pos_shift[:, 1]) + 0.1])
+    # ax9.set_zlim([0, max(pos_shift[:, 2]) + 0.1])
+    # ax9.set_title("3D Displacement (Positive Axes)")
+    # ax9.set_xlabel("X (m)")
+    # ax9.set_ylabel("Y (m)")
+    # ax9.set_zlabel("Z (m)")
 
     # Extra subplot: 3D imu_low_acceleration (Filtered, Positive Axes)
     fig2 = plt.figure(figsize=(8, 6))
