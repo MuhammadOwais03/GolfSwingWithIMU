@@ -111,7 +111,7 @@ class GolfIMU:
             if len(r) == 13:
                 try:
                     lax, lay, laz = float(r[1]), (float(r[0])+1) * -1, float(r[2]) * -1
-                    hax, hay, haz = float(r[3]), float(r[4]), float(r[5])
+                    hax, hay, haz = -float(r[3]), -float(r[4]), -float(r[5])
                     gx, gy, gz = float(r[6]), float(r[7]), float(r[8])
                     pitch, roll, yaw = float(r[9]), float(r[10]), float(r[11])
                     vib = float(r[12])
@@ -159,9 +159,11 @@ def load_raw_csv(file_path="raw.csv"):
     imu_high_accel_arr = df[["high_ax", "high_ay", "high_az"]].values
     imu_euler = df[["pitch", "roll", "yaw"]].values
     imu_gyro = df[["Gx", "Gy", "Gz"]].values
+    vel = df[["velX", "velY", "velZ"]].values  # shape: (N, 3)
+    roll = df[["pitch", "roll", "yaw"]].values  # shape: (N, 3)
     imu_vibration_arr = df["imu_vibration"].values if "imu_vibration" in df.columns else np.zeros(len(imu_low_accel_arr))
     t_arr = df["time"].values
-    return imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr
+    return imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr, vel, roll
 
 
 def plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv"):
@@ -324,6 +326,10 @@ if __name__ == "__main__":
     imu_low_accel_arr = None
     imu_gyro = None
     t_arr = None
+    vel = None
+    roll = None
+    target_time = None
+    resultant_velocity = None
     fs = 800  # Hz
 
     # Try serial connection
@@ -338,10 +344,10 @@ if __name__ == "__main__":
             t_arr = np.array(t)
         else:
             print("Error: Insufficient or no data collected from IMU.")
-            imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr = load_raw_csv()
+            imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr, vel,roll = load_raw_csv()
     except Exception as e:
         print(f"Falling back to CSV because serial connection failed: {e}")
-        imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr = load_raw_csv()
+        imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr, ve, roll = load_raw_csv()
 
     imu.close()
 
@@ -354,6 +360,8 @@ if __name__ == "__main__":
     print("imu_gyro shape:", imu_gyro.shape)
     print("imu_vibration_arr shape:", imu_vibration_arr.shape)
     print("t_arr shape:", t_arr.shape)
+    print("vel shape:", vel.shape if vel is not None else "None (velocity data not available)")
+    print("Roll shape:", roll.shape if roll is not None else "None (roll data not available)") 
 
     if len(imu_low_accel_arr) <= 12:
         print("Error: Not enough samples for filtering.")
@@ -440,25 +448,13 @@ if __name__ == "__main__":
         "low_ax": imu_low_accel_arr[:, 0], "low_ay": imu_low_accel_arr[:, 1], "low_az": imu_low_accel_arr[:, 2],
         "high_ax": imu_high_accel_arr[:, 0], "high_ay": imu_high_accel_arr[:, 1], "high_az": imu_high_accel_arr[:, 2],
         "pitch": imu_euler[:, 0], "roll": imu_euler[:, 1], "yaw": imu_euler[:, 2],
-        "Gx": imu_gyro[:, 0], "Gy": imu_gyro[:, 1], "Gz": imu_gyro[:, 2],"imu_vibration": imu_vibration_arr
-    })
-    df_raw.to_csv("raw.csv", index=False)
-
-    df_pos = pd.DataFrame({
-        "time": t_arr,
+        "Gx": imu_gyro[:, 0], "Gy": imu_gyro[:, 1], "Gz": imu_gyro[:, 2],"imu_vibration": imu_vibration_arr,
         "velX": vel_global[:, 0], "velY": vel_global[:, 1], "velZ": vel_global[:, 2],
         "posX": pos_shift[:, 0], "posY": pos_shift[:, 1], "posZ": pos_shift[:, 2],
-        "yaw_deg": euler_deg[:, 0], "pitch_deg": euler_deg[:, 1], "roll_deg": euler_deg[:, 2]
+        "yaw_deg": euler_deg[:, 0], "pitch_deg": euler_deg[:, 1], "roll_deg": euler_deg[:, 2],
+        "Ax_filt": ax_filt, "Ay_filt": ay_filt, "Az_filt": az_filt
     })
-    df_pos.to_csv("pos.csv", index=False)
-
-    df_imu_low_accel_filt = pd.DataFrame({
-        "time": t_arr,
-        "Ax_filt": ax_filt,
-        "Ay_filt": ay_filt,
-        "Az_filt": az_filt
-    })
-    df_imu_low_accel_filt.to_csv("imu_low_accelfilt.csv", index=False)
+    df_raw.to_csv("raw.csv", index=False)
 
     # Plots
     fig = plt.figure(figsize=(16, 12))
@@ -574,6 +570,38 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+    # Find index of maximum acceleration value
+    max_index = np.unravel_index(np.argmax(imu_high_accel_arr), imu_high_accel_arr.shape)
+    row_idx = max_index[0]
+    col_idx = max_index[1]
+
+    # Get details
+    max_value = imu_high_accel_arr[row_idx, col_idx]
+    axis_name = ['X', 'Y', 'Z'][col_idx]
+    time_at_max = t_arr[row_idx]
+
+    # Example: get velocity at t = 1.25 s
+    df = pd.read_csv("raw.csv")
+    t_arr = df["time"].values
+    vel = df[["velX", "velY", "velZ"]].values  # shape: (N, 3)
+    target_time = time_at_max
+    idx = (np.abs(t_arr - target_time)).argmin()
+    velocity_at_time = vel[idx]
+    # Calculate resultant velocity
+    resultant_velocity = np.linalg.norm(velocity_at_time)  
+
+    # roll
+    roll = df[["pitch", "roll", "yaw"]].values
+    target_time = time_at_max
+    idx = (np.abs(t_arr - target_time)).argmin()
+    roll_at_time = roll[idx]
+    
+
+    print(f"Max acceleration: {max_value:.6f} m/s²")
+    print(f" Axis with max accel: {axis_name}")
+    print(f" Time: {time_at_max:.9f} s")
+    print(f"Velocity at {t_arr[idx]:.3f}s : {resultant_velocity} m/s")
+    print(f"Roll/Face Angle at {t_arr[idx]:.3f}s : {roll_at_time[1]} deg")  # Current output
     # animate_imu_low_accel("imu_low_accelfilt.csv", "imu_low_accelfilt.gif")
     plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv")
 
