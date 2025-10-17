@@ -27,7 +27,7 @@ extern "C" void app_main(void)
 
     while (1) {
         reader.read_python_file();
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(500));
     };
 
 

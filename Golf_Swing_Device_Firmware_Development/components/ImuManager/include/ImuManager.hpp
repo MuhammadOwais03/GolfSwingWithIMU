@@ -9,10 +9,10 @@
 #include "esp_log.h"
 #include "lsm6dsv320x_reg.h"
 
-#define BOOT_TIME 10 // ms
-#define POLL_INTERVAL 1000 // ms
-#define CNT_FOR_OUTPUT 100
-#define    FIFO_WATERMARK       128
+#define BOOT_TIME          10 // ms
+#define POLL_INTERVAL      1000 // ms
+#define CNT_FOR_OUTPUT     100
+#define FIFO_WATERMARK     128
 
 using RawAccelVec         = std::vector<float>;
 using RawGyroVec          = std::vector<float>;

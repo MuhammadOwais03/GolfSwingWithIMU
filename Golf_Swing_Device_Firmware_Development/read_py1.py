@@ -31,57 +31,6 @@ class GolfIMU:
             print(f"Serial connection failed: {e}")
             raise
 
-    # def read_data(self):
-    #     self.ser.write(b"READ_FILE\r\n")
-    #     file_content = ""
-    #     count = 0
-    #     while True:
-    #         line = self.ser.readline().decode("utf-8", errors="ignore").strip()
-    #         print(f"{count}: hello", line)
-    #         count += 1
-    #         if line == "EOF":
-    #             break
-    #         if line.startswith("I (") or line.startswith("E ("):
-    #             continue
-    #         file_content += line + "\n"
-
-    #     lines = file_content.strip().split("\n")
-    #     readings = lines[1:]  # Skip header
-    #     imu_low_accel_list = []
-    #     imu_gyro_list = []
-    #     imu_vibration_list = []
-
-    #     for r in readings:
-    #         r = r.strip().split(",")
-    #         if len(r) == 7:
-    #             try:
-    #                 # ax = float(r[1]) * -1.0
-    #                 # ay = (float(r[0]) + 20.0) * 1.0
-    #                 # az = float(r[2])*  -1.0
-    #                 ax = float(r[1]) * 1.0
-    #                 ay = (float(r[0])+1) * -1
-    #                 az = float(r[2])*  -1.0
-    #                 gx = float(r[3]) 
-    #                 gy = float(r[4]) 
-    #                 gz = float(r[5]) 
-    #                 v = float(r[6])
-                  
-    #                 imu_low_accel_list.append([ax, ay, az])
-    #                 imu_gyro_list.append([gx, gy, gz])
-    #                 imu_vibration_list.append(v)
-    #             except ValueError as e:
-    #                 print(f"Error parsing line {r}: {e}")
-    #                 continue
-
-    #     if not imu_low_accel_list:
-    #         print("Warning: No valid imu_low_accelerometer data collected.")
-    #         return np.array([]), np.array([])
-
-    #     imu_low_accel = np.array(imu_low_accel_list) - self.offsets_acc
-    #     imu_gyro = np.array(imu_gyro_list) - self.offsets_imu_gyro
-    #     imu_vibration = np.array(imu_vibration_list) 
-    #     return imu_low_accel, imu_gyro, imu_vibration
-
     def read_data(self):
         self.ser.write(b"READ_FILE\r\n")
         file_content = ""
@@ -270,90 +219,90 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
     plt.show()
 
 
-# def animate_imu_low_accel(csv_file="imu_low_accelfilt.csv", out_file="imu_low_accelfilt.gif"):
-#     try:
-#         df = pd.read_csv(csv_file)
-#     except FileNotFoundError:
-#         print(f"Error: {csv_file} not found. Ensure data is saved correctly.")
-#         return
+def animate_imu_low_accel(csv_file="raw.csv", out_file="imu_low_accelfilt.gif"):
+    try:
+        df = pd.read_csv(csv_file)
+    except FileNotFoundError:
+        print(f"Error: {csv_file} not found. Ensure data is saved correctly.")
+        return
 
-#     # === Extract filtered imu_low_acceleration ===
-#     t = df["time"].values
-#     ax = df["Ax_filt"].values
-#     ay = df["Ay_filt"].values
-#     az = df["Az_filt"].values
+    # === Extract filtered imu_low_acceleration ===
+    t = df["time"].values
+    ax = df["Ax_filt"].values
+    ay = df["Ay_filt"].values
+    az = df["Az_filt"].values
 
-#     # === Optional: speed & angle ===
-#     speed = np.sqrt(ax**2 + ay**2 + az**2)
-#     angle = np.degrees(np.arctan2(ay, ax))  # horizontal angle
+    # === Optional: speed & angle ===
+    speed = np.sqrt(ax**2 + ay**2 + az**2)
+    angle = np.degrees(np.arctan2(ay, ax))  # horizontal angle
 
-#     # === Shift values to positive quadrant ===
-#     ax_shift = ax - min(ax) if min(ax) < 0 else ax
-#     ay_shift = ay - min(ay) if min(ay) < 0 else ay
-#     az_shift = az - min(az) if min(az) < 0 else az
+    # === Shift values to positive quadrant ===
+    ax_shift = ax - min(ax) if min(ax) < 0 else ax
+    ay_shift = ay - min(ay) if min(ay) < 0 else ay
+    az_shift = az - min(az) if min(az) < 0 else az
 
-#     # === Create 4 subplots (Top, Rear, Front, Full 3D) ===
-#     fig = plt.figure(figsize=(20, 6))
-#     ax_top   = fig.add_subplot(141, projection='3d')
-#     ax_rear  = fig.add_subplot(142, projection='3d')
-#     ax_front = fig.add_subplot(143, projection='3d')
-#     ax_full  = fig.add_subplot(144, projection='3d')
+    # === Create 4 subplots (Top, Rear, Front, Full 3D) ===
+    fig = plt.figure(figsize=(20, 6))
+    ax_top   = fig.add_subplot(141, projection='3d')
+    ax_rear  = fig.add_subplot(142, projection='3d')
+    ax_front = fig.add_subplot(143, projection='3d')
+    ax_full  = fig.add_subplot(144, projection='3d')
 
-#     # Common axis limits
-#     xlim = [0, max(ax_shift) + 0.1]
-#     ylim = [0, max(ay_shift) + 0.1]
-#     zlim = [0, max(az_shift) + 0.1]
+    # Common axis limits
+    xlim = [0, max(ax_shift) + 0.1]
+    ylim = [0, max(ay_shift) + 0.1]
+    zlim = [0, max(az_shift) + 0.1]
 
-#     for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
-#         ax_view.set_xlim(xlim)
-#         ax_view.set_ylim(ylim)
-#         ax_view.set_zlim(zlim)
-#         ax_view.set_xlabel("Ax")
-#         ax_view.set_ylabel("Ay")
-#         ax_view.set_zlabel("Az")
+    for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
+        ax_view.set_xlim(xlim)
+        ax_view.set_ylim(ylim)
+        ax_view.set_zlim(zlim)
+        ax_view.set_xlabel("Ax")
+        ax_view.set_ylabel("Ay")
+        ax_view.set_zlabel("Az")
 
-#     # Different view angles
-#     ax_top.view_init(elev=90, azim=-90)   # Top
-#     ax_rear.view_init(elev=0, azim=180)   # Rear
-#     ax_front.view_init(elev=0, azim=0)    # Front
-#     ax_full.view_init(elev=30, azim=-60)  # Full 3D (angled)
+    # Different view angles
+    ax_top.view_init(elev=90, azim=-90)   # Top
+    ax_rear.view_init(elev=0, azim=180)   # Rear
+    ax_front.view_init(elev=0, azim=0)    # Front
+    ax_full.view_init(elev=30, azim=-60)  # Full 3D (angled)
 
-#     # Titles
-#     ax_top.set_title("Top View")
-#     ax_rear.set_title("Rear View")
-#     ax_front.set_title("Front View")
-#     ax_full.set_title("3D Full Trajectory")
+    # Titles
+    ax_top.set_title("Top View")
+    ax_rear.set_title("Rear View")
+    ax_front.set_title("Front View")
+    ax_full.set_title("3D Full Trajectory")
 
-#     # Trajectory line and point for each view
-#     lines, points = [], []
-#     for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
-#         line, = ax_view.plot([], [], [], "r-", lw=2, label="Filtered imu_low_accel")
-#         point, = ax_view.plot([], [], [], "ko")
-#         lines.append(line)
-#         points.append(point)
+    # Trajectory line and point for each view
+    lines, points = [], []
+    for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
+        line, = ax_view.plot([], [], [], "r-", lw=2, label="Filtered imu_low_accel")
+        point, = ax_view.plot([], [], [], "ko")
+        lines.append(line)
+        points.append(point)
 
-#     ax_full.legend()
+    ax_full.legend()
 
-#     # === Text box for Speed & Angle ===
-#     text_box = fig.text(0.5, 0.02, "", fontsize=12, ha='center', va='center')
+    # === Text box for Speed & Angle ===
+    text_box = fig.text(0.5, 0.02, "", fontsize=12, ha='center', va='center')
 
-#     # === Animation Update Function ===
-#     def update(i):
-#         for line, point in zip(lines, points):
-#             line.set_data(ax_shift[:i], ay_shift[:i])
-#             line.set_3d_properties(az_shift[:i])
-#             point.set_data([ax_shift[i]], [ay_shift[i]])
-#             point.set_3d_properties([az_shift[i]])
+    # === Animation Update Function ===
+    def update(i):
+        for line, point in zip(lines, points):
+            line.set_data(ax_shift[:i], ay_shift[:i])
+            line.set_3d_properties(az_shift[:i])
+            point.set_data([ax_shift[i]], [ay_shift[i]])
+            point.set_3d_properties([az_shift[i]])
+        impact_time, face_angle, imapact_speed = get_Impact_time_face_angle_velocity()
+        text_box.set_text(
+            f"Time: {impact_time:.9f}s  |  Speed: {imapact_speed:.3f} m/s  |  Angle: {face_angle:.3f}°"
+        )
+        return lines + points
 
-#         text_box.set_text(
-#             f"Time: {t[i]:.2f}s  |  Speed: {speed[i]:.2f} m/s  |  Angle: {angle[i]:.1f}°"
-#         )
-#         return lines + points
-
-#     ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=True)
-#     ani.save(out_file, writer="pillow")
-#     print(f"[OK] Animation saved as {out_file}")
-#     plt.show()
+    ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=True)
+    ani.save(out_file, writer="pillow")
+    print(f"[OK] Animation saved as {out_file}")
+    plt.show()
 
 if __name__ == "__main__":
     has_run = False
@@ -610,7 +559,7 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
-    # animate_imu_low_accel("imu_low_accelfilt.csv", "imu_low_accelfilt.gif")
+    animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
     plot_imu_low_accel_trajectory()
 
 
