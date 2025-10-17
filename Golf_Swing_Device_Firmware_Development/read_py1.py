@@ -165,8 +165,48 @@ def load_raw_csv(file_path="raw.csv"):
     t_arr = df["time"].values
     return imu_low_accel_arr, imu_high_accel_arr, imu_gyro, imu_euler, imu_vibration_arr, t_arr, vel, roll
 
+def get_Impact_time_face_angle_velocity(file_path="raw.csv"):
+    if not os.path.exists(file_path):
+        print(f"Error: {file_path} not found.")
+        return None, None, None
+    
+    df = pd.read_csv(file_path)
+    imu_high_accel_arr = df[["high_ax", "high_ay", "high_az"]].values
+    t_arr = df["time"].values  # Define t_arr before use
+    
+    # Find index of maximum acceleration value
+    max_index = np.unravel_index(np.argmax(imu_high_accel_arr), imu_high_accel_arr.shape)
+    row_idx = max_index[0]
+    col_idx = max_index[1]
+    
+    # Get details
+    max_value = imu_high_accel_arr[row_idx, col_idx]
+    axis_name = ['X', 'Y', 'Z'][col_idx]
+    time_at_max = t_arr[row_idx]
 
-def plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv"):
+    # Get velocity, face angle (yaw), and acceleration at time of impact
+    vel = df[["velX", "velY", "velZ"]].values  # shape: (N, 3)
+    roll = df[["pitch", "roll", "yaw"]].values
+    accel = df[["low_ax", "low_ay", "low_az"]].values
+    target_time = time_at_max
+    idx = (np.abs(t_arr - target_time)).argmin()
+    velocity_at_time = vel[idx]
+    roll_at_time = roll[idx]
+    accel_at_time = accel[idx]
+
+    # Calculate resultant velocity and acceleration magnitude
+    resultant_velocity = np.linalg.norm(velocity_at_time)
+    accel_magnitude = np.linalg.norm(accel_at_time)
+
+    # Print face angle (yaw), velocity, and acceleration at impact
+    print(f"Impact Time: {t_arr[idx]:.3f}s")
+    print(f"Face Angle (Roll): {roll_at_time[1]:.2f} deg")
+    print(f"Resultant Velocity: {resultant_velocity:.6f} m/s")
+    print(f"Acceleration Magnitude: {accel_magnitude:.6f} m/s²")
+
+    return time_at_max, roll_at_time[1], resultant_velocity
+
+def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
     try:
         df = pd.read_csv(csv_file)
     except FileNotFoundError:
@@ -179,8 +219,6 @@ def plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv"):
     ay = df["Ay_filt"].values
     az = df["Az_filt"].values
 
-    speed = np.sqrt(ax**2 + ay**2 + az**2)
-    angle = np.degrees(np.arctan2(ay, ax))
 
     # === Shift to positive quadrant (optional) ===
     ax_shift = ax - min(ax) if min(ax) < 0 else ax
@@ -224,11 +262,13 @@ def plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv"):
         view.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")  # final point
 
     # === Optional info box ===
-    text_str = f"Final Time: {t[-1]:.2f}s  |  Final Speed: {speed[-1]:.2f} m/s  |  Angle: {angle[-1]:.1f}°"
+    impact_time, face_angle, imapact_speed = get_Impact_time_face_angle_velocity()
+    text_str = f"Final Time: {impact_time:.9f}s  |  Final Speed: {imapact_speed:.3f} m/s  |  Angle: {face_angle:.1f}°"
     fig.text(0.5, 0.02, text_str, fontsize=12, ha='center', va='center')
 
     plt.tight_layout()
     plt.show()
+
 
 # def animate_imu_low_accel(csv_file="imu_low_accelfilt.csv", out_file="imu_low_accelfilt.gif"):
 #     try:
@@ -570,38 +610,11 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
-    # Find index of maximum acceleration value
-    max_index = np.unravel_index(np.argmax(imu_high_accel_arr), imu_high_accel_arr.shape)
-    row_idx = max_index[0]
-    col_idx = max_index[1]
-
-    # Get details
-    max_value = imu_high_accel_arr[row_idx, col_idx]
-    axis_name = ['X', 'Y', 'Z'][col_idx]
-    time_at_max = t_arr[row_idx]
-
-    # Example: get velocity at t = 1.25 s
-    df = pd.read_csv("raw.csv")
-    t_arr = df["time"].values
-    vel = df[["velX", "velY", "velZ"]].values  # shape: (N, 3)
-    target_time = time_at_max
-    idx = (np.abs(t_arr - target_time)).argmin()
-    velocity_at_time = vel[idx]
-    # Calculate resultant velocity
-    resultant_velocity = np.linalg.norm(velocity_at_time)  
-
-    # roll
-    roll = df[["pitch", "roll", "yaw"]].values
-    target_time = time_at_max
-    idx = (np.abs(t_arr - target_time)).argmin()
-    roll_at_time = roll[idx]
-    
-
-    print(f"Max acceleration: {max_value:.6f} m/s²")
-    print(f" Axis with max accel: {axis_name}")
-    print(f" Time: {time_at_max:.9f} s")
-    print(f"Velocity at {t_arr[idx]:.3f}s : {resultant_velocity} m/s")
-    print(f"Roll/Face Angle at {t_arr[idx]:.3f}s : {roll_at_time[1]} deg")  # Current output
     # animate_imu_low_accel("imu_low_accelfilt.csv", "imu_low_accelfilt.gif")
-    plot_imu_low_accel_trajectory(csv_file="imu_low_accelfilt.csv")
+    plot_imu_low_accel_trajectory()
+
+
+
+
+
 
