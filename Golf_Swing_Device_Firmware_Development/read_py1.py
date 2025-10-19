@@ -266,22 +266,6 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
             ax_full.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
     ax_full.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
     
-
-    # # === Plot phases with colors ===
-    # for view in [ax_top, ax_rear, ax_front, ax_full]:
-    #     # Backswing in red
-    #     view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
-        
-    #     # Downswing in green
-    #     view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
-        
-    #     # Follow-through in blue (optional)
-    #     if follow_ax.size > 0:
-    #         view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
-        
-    #     # Final point
-    #     view.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
-
     # === Optional info box ===
     impact_time, face_angle, imapact_speed = get_Impact_time_face_angle_velocity()
     text_str = f"Final Time: {impact_time:.9f}s  |  Final Speed: {imapact_speed:.3f} m/s  |  Angle: {face_angle:.1f}°"
@@ -296,11 +280,13 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
 
 
 
-# def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
+
+
+# def animate_imu_low_accel(csv_file="raw.csv", out_file="imu_low_accelfilt.gif"):
 #     try:
 #         df = pd.read_csv(csv_file)
 #     except FileNotFoundError:
-#         print(f"Error: {csv_file} not found.")
+#         print(f"Error: {csv_file} not found. Ensure data is saved correctly.")
 #         return
 
 #     # === Extract filtered imu_low_acceleration ===
@@ -308,15 +294,24 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
 #     ax = df["Ax_filt"].values
 #     ay = df["Ay_filt"].values
 #     az = df["Az_filt"].values
+#     # === Identify impact point using vibration (high frequency accelerations) ===
+#     df['vibe_mag'] = np.sqrt(df['high_ax']**2 + df['high_ay']**2 + df['high_az']**2)
+#     impact_idx = df['vibe_mag'].argmax()
 
 #     # === Shift to positive quadrant (optional) ===
 #     ax_shift = ax - min(ax) if min(ax) < 0 else ax
 #     ay_shift = ay - min(ay) if min(ay) < 0 else ay
 #     az_shift = az - min(az) if min(az) < 0 else az
 
-#     # === Identify impact point using vibration (high frequency accelerations) ===
-#     df['vibe_mag'] = np.sqrt(df['high_ax']**2 + df['high_ay']**2 + df['high_az']**2)
-#     impact_idx = df['vibe_mag'].argmax()
+#     # === Identify top of backswing: last sign change in Gz (yaw rate) before impact ===
+#     pre_impact_df = df.iloc[:impact_idx + 1]
+#     gz_sign = np.sign(pre_impact_df['Gz'].values)
+#     sign_diff = np.diff(gz_sign)
+#     sign_change_idxs = np.where(sign_diff != 0)[0]
+#     if len(sign_change_idxs) > 0:
+#         top_idx = sign_change_idxs[-1] + 1
+#     else:
+#         top_idx = 0  # Default to start if no sign change
 
 #     # === Identify top of backswing: last sign change in Gz (yaw rate) before impact ===
 #     pre_impact_df = df.iloc[:impact_idx + 1]
@@ -343,123 +338,112 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
 #     follow_ax = ax_shift[impact_idx:]
 #     follow_ay = ay_shift[impact_idx:]
 #     follow_az = az_shift[impact_idx:]
+#     # === Optional: speed & angle ===
+#     speed = np.sqrt(ax**2 + ay**2 + az**2)
+#     angle = np.degrees(np.arctan2(ay, ax))  # horizontal angle
 
-#     # # === Create figure and subplots ===
-#     # fig = plt.figure(figsize=(20, 6))
-#     # ax_top   = fig.add_subplot(141)
-#     # ax_rear  = fig.add_subplot(142)
-#     # ax_front = fig.add_subplot(143)
-#     # ax_full  = fig.add_subplot(144)
+#     # === Shift values to positive quadrant ===
+#     ax_shift = ax - min(ax) if min(ax) < 0 else ax
+#     ay_shift = ay - min(ay) if min(ay) < 0 else ay
+#     az_shift = az - min(az) if min(az) < 0 else az
 
-#     # # Common limits
-#     # xlim = [0, max(ax_shift) + 0.1]
-#     # ylim = [0, max(ay_shift) + 0.1]
-#     # zlim = [0, max(az_shift) + 0.1]
-#     # for view in [ax_top, ax_rear, ax_front, ax_full]:
-#     #     view.set_xlim(xlim)
-#     #     view.set_ylim(ylim)
-#     #     # view.set_zlim(zlim)
-#     #     view.set_xlabel("Ax (m/s²)")
-#     #     view.set_ylabel("Ay (m/s²)")
-#     #     # view.set_zlabel("Az (m/s²)")
+#     # === Create 4 subplots (Top, Rear, Front, Full 3D) ===
+#     fig = plt.figure(figsize=(20, 6))
+#     ax_top   = fig.add_subplot(141, projection='3d')
+#     ax_rear  = fig.add_subplot(142, projection='3d')
+#     ax_front = fig.add_subplot(143, projection='3d')
+#     ax_full  = fig.add_subplot(144, projection='3d')
 
-#     # # View angles
-#     # ax_top.view_init(90, -90)    # top
-#     # ax_rear.view_init(-90, 90)    # rear
-#     # ax_front.view_init(-30, 60)    # front
-#     # ax_full.view_init(30, -60)   # full trajectory
+#     # Common axis limits
+#     xlim = [0, max(ax_shift) + 0.1]
+#     ylim = [0, max(ay_shift) + 0.1]
+#     zlim = [0, max(az_shift) + 0.1]
 
-#     # # Titles
-#     # ax_top.set_title("Side View")
-#     # ax_rear.set_title("Rear View")
-#     # ax_front.set_title("Front View")
-#     # ax_full.set_title("3D Full Trajectory")
-    
-#     # # === Plot Side View Trajectory Line ===
-#     # view.plot(back_ax, back_ay, "r-", lw=2, label="Backswing")
-#     #      # Downswing in green
-#     # view.plot(down_ax, down_ay, "g-", lw=2, label="Downswing")
-        
-#     #     # Follow-through in blue (optional)
-#     # if follow_ax.size > 0:
-#     #         view.plot(follow_ax, follow_ay, "g-", lw=2, label="Follow-through")
-        
-#     #     # Final point
-#     # view.plot([ax_shift[-1]], [ay_shift[-1]], "ko")
-    
+#     for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
+#         ax_view.set_xlim(xlim)
+#         ax_view.set_ylim(ylim)
+#         ax_view.set_zlim(zlim)
+#         ax_view.set_xlabel("Ax")
+#         ax_view.set_ylabel("Ay")
+#         ax_view.set_zlabel("Az")
 
-#     # # === Plot phases with colors ===
-#     # for view in [ax_top, ax_rear, ax_front, ax_full]:
-#     #     # Backswing in red
-#     #     view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
-        
-#     #     # Downswing in green
-#     #     view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
-        
-#     #     # Follow-through in blue (optional)
-#     #     if follow_ax.size > 0:
-#     #         view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
-        
-#     #     # Final point
-#     #     view.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
-    
-#     fig, axes = plt.subplots(1, 4, figsize=(24, 6))  # Wider width to fit all plots
-#     ax_top, ax_rear, ax_front, ax_full = axes
-    
-#     # === Top View (Ax vs Ay) ===
-#     ax_top.plot(back_az, back_ax, 'r-', lw=2, label='Backswing')            # x,y x,z y,x y,z z,x z,y
-#     ax_top.plot(down_az, down_ax, 'g-', lw=2, label='Downswing')
-#     if follow_az.size > 0:
-#         ax_top.plot(follow_az, follow_ax, 'g-', lw=2, label='Follow-through')
-#     ax_top.set_xlabel("Az (m/s²)")
-#     ax_top.set_ylabel("Ax (m/s²)")
-#     ax_top.set_title("Top View (Az vs Ax)")
+#     # Different view angles
+#     # View angles
+#     ax_top.view_init(90, -90)    # top
+#     ax_rear.view_init(-90, 90)    # rear
+#     ax_front.view_init(-30, 60)    # front
+#     ax_full.view_init(30, -60)   # full trajectory
 
-#     # === Rear View (Ay vs Az) ===
-#     ax_rear.plot(back_ay, back_az, 'r-', lw=2, label='Backswing')
-#     ax_rear.plot(down_ay, down_az, 'g-', lw=2, label='Downswing')
-#     if follow_ax.size > 0:
-#         ax_rear.plot(follow_ay, follow_az, 'b-', lw=2, label='Follow-through')
-#     ax_rear.set_xlabel("Ay (m/s²)")
-#     ax_rear.set_ylabel("Az (m/s²)")
-#     ax_rear.set_title("Rear View (Ay vs Az)")
+#     # Titles
+#     ax_top.set_title("Side View")
+#     ax_rear.set_title("Rear View")
+#     ax_front.set_title("Front View")
+#     ax_full.set_title("3D Full Trajectory")
 
-#     # === Front View (Ax vs Az) ===
-#     ax_front.plot(back_ax, back_az, 'r-', lw=2, label='Backswing')
-#     ax_front.plot(down_ax, down_az, 'g-', lw=2, label='Downswing')
-#     if follow_ax.size > 0:
-#         ax_front.plot(follow_ax, follow_az, 'b-', lw=2, label='Follow-through')
-#     ax_front.set_xlabel("Ax (m/s²)")
-#     ax_front.set_ylabel("Az (m/s²)")
-#     ax_front.set_title("Front View (Ax vs Az)")
+#     # Trajectory line and point for each view
+#     lines, points = [], []
+#     for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
+#         line_1, = ax_view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
+#         line_2, = ax_view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
+#         line_3, = ax_view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
+#         point, = ax_view.plot([], [], [], "ko")
+#         lines.append(line_1)
+#         lines.append(line_2)
+#         lines.append(line_3)
+#         points.append(point)
 
-#     # === Full View (Combined Projection Ax vs Ay) ===
-#     ax_full.plot(back_ax, back_ay, 'r-', lw=2, label='Backswing')
-#     ax_full.plot(down_ax, down_ay, 'g-', lw=2, label='Downswing')
-#     if follow_ax.size > 0:
-#         ax_full.plot(follow_ax, follow_ay, 'b-', lw=2, label='Follow-through')
-#     ax_full.set_xlabel("Ax (m/s²)")
-#     ax_full.set_ylabel("Ay (m/s²)")
-#     ax_full.set_title("Full 2D Trajectory (Ax vs Ay)")
+#     ax_full.legend()
 
-#     # Finalize all
-#     for ax in [ax_top, ax_rear, ax_front, ax_full]:
-#         ax.grid(True)
-#         ax.legend()
+#     # === Text box for Speed & Angle ===
+#     text_box = fig.text(0.5, 0.02, "", fontsize=12, ha='center', va='center')
 
-#     # === Optional info box ===
-#     impact_time, face_angle, imapact_speed = get_Impact_time_face_angle_velocity()
-#     text_str = f"Final Time: {impact_time:.9f}s  |  Final Speed: {imapact_speed:.3f} m/s  |  Angle: {face_angle:.1f}°"
-#     fig.text(0.5, 0.02, text_str, fontsize=12, ha='center', va='center')
+#     def update(i):
+#         # segment indexes
+#         for v in range(4):  # for each subplot view
+#             # 3 lines per view (backswing, downswing, follow)
+#             back_line = lines[v*3 + 0]
+#             down_line = lines[v*3 + 1]
+#             follow_line = lines[v*3 + 2]
+#             point = points[v]
 
-#     # Add legend to the full view (or adjust as needed)
-#     ax_full.legend(loc='upper right')
+#             # Backswing segment
+#             idx_back = min(i, top_idx)
+#             back_line.set_data(ax_shift[:idx_back], ay_shift[:idx_back])
+#             back_line.set_3d_properties(az_shift[:idx_back])
 
-#     plt.tight_layout()
+#             # Downswing segment
+#             if i > top_idx:
+#                 idx_down = min(i, impact_idx)
+#                 down_line.set_data(ax_shift[top_idx:idx_down], ay_shift[top_idx:idx_down])
+#                 down_line.set_3d_properties(az_shift[top_idx:idx_down])
+#             else:
+#                 down_line.set_data([], [])
+#                 down_line.set_3d_properties([])
+
+#             # Follow-through segment
+#             if i > impact_idx:
+#                 idx_follow = min(i, len(ax_shift)-1)
+#                 follow_line.set_data(ax_shift[impact_idx:idx_follow], ay_shift[impact_idx:idx_follow])
+#                 follow_line.set_3d_properties(az_shift[impact_idx:idx_follow])
+#             else:
+#                 follow_line.set_data([], [])
+#                 follow_line.set_3d_properties([])
+
+#             # Current point marker
+#             point.set_data([ax_shift[i]], [ay_shift[i]])
+#             point.set_3d_properties([az_shift[i]])
+
+#         # Update text box
+#         impact_time, face_angle, impact_speed = get_Impact_time_face_angle_velocity()
+#         text_box.set_text(
+#             f"Time: {impact_time:.6f}s  |  Speed: {impact_speed:.3f} m/s  |  Angle: {face_angle:.3f}°"
+#         )
+#         return lines + points
+
+#     ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=True)
+#     ani.save(out_file, writer="pillow")
+#     print(f"[OK] Animation saved as {out_file}")
 #     plt.show()
-
-
-
 
 def animate_imu_low_accel(csv_file="raw.csv", out_file="imu_low_accelfilt.gif"):
     try:
@@ -473,85 +457,52 @@ def animate_imu_low_accel(csv_file="raw.csv", out_file="imu_low_accelfilt.gif"):
     ax = df["Ax_filt"].values
     ay = df["Ay_filt"].values
     az = df["Az_filt"].values
+
     # === Identify impact point using vibration (high frequency accelerations) ===
     df['vibe_mag'] = np.sqrt(df['high_ax']**2 + df['high_ay']**2 + df['high_az']**2)
     impact_idx = df['vibe_mag'].argmax()
 
-    # === Shift to positive quadrant (optional) ===
+    # === Shift to positive quadrant ===
     ax_shift = ax - min(ax) if min(ax) < 0 else ax
     ay_shift = ay - min(ay) if min(ay) < 0 else ay
     az_shift = az - min(az) if min(az) < 0 else az
 
-    # === Identify top of backswing: last sign change in Gz (yaw rate) before impact ===
+    # === Identify top of backswing ===
     pre_impact_df = df.iloc[:impact_idx + 1]
     gz_sign = np.sign(pre_impact_df['Gz'].values)
     sign_diff = np.diff(gz_sign)
     sign_change_idxs = np.where(sign_diff != 0)[0]
-    if len(sign_change_idxs) > 0:
-        top_idx = sign_change_idxs[-1] + 1
-    else:
-        top_idx = 0  # Default to start if no sign change
-
-    # === Identify top of backswing: last sign change in Gz (yaw rate) before impact ===
-    pre_impact_df = df.iloc[:impact_idx + 1]
-    gz_sign = np.sign(pre_impact_df['Gz'].values)
-    sign_diff = np.diff(gz_sign)
-    sign_change_idxs = np.where(sign_diff != 0)[0]
-    if len(sign_change_idxs) > 0:
-        top_idx = sign_change_idxs[-1] + 1
-    else:
-        top_idx = 0  # Default to start if no sign change
+    top_idx = sign_change_idxs[-1] + 1 if len(sign_change_idxs) > 0 else 0
 
     # === Split data into phases ===
-    # Backswing: start to top
-    back_ax = ax_shift[:top_idx + 1]
-    back_ay = ay_shift[:top_idx + 1]
-    back_az = az_shift[:top_idx + 1]
+    back_ax, back_ay, back_az = ax_shift[:top_idx + 1], ay_shift[:top_idx + 1], az_shift[:top_idx + 1]
+    down_ax, down_ay, down_az = ax_shift[top_idx:impact_idx + 1], ay_shift[top_idx:impact_idx + 1], az_shift[top_idx:impact_idx + 1]
+    follow_ax, follow_ay, follow_az = ax_shift[impact_idx:], ay_shift[impact_idx:], az_shift[impact_idx:]
 
-    # Downswing: top to impact
-    down_ax = ax_shift[top_idx:impact_idx + 1]
-    down_ay = ay_shift[top_idx:impact_idx + 1]
-    down_az = az_shift[top_idx:impact_idx + 1]
-
-    # Follow-through: after impact (optional, in blue)
-    follow_ax = ax_shift[impact_idx:]
-    follow_ay = ay_shift[impact_idx:]
-    follow_az = az_shift[impact_idx:]
-    # === Optional: speed & angle ===
-    speed = np.sqrt(ax**2 + ay**2 + az**2)
-    angle = np.degrees(np.arctan2(ay, ax))  # horizontal angle
-
-    # === Shift values to positive quadrant ===
-    ax_shift = ax - min(ax) if min(ax) < 0 else ax
-    ay_shift = ay - min(ay) if min(ay) < 0 else ay
-    az_shift = az - min(az) if min(az) < 0 else az
-
-    # === Create 4 subplots (Top, Rear, Front, Full 3D) ===
+    # === Create 4 subplots (matching static version) ===
     fig = plt.figure(figsize=(20, 6))
     ax_top   = fig.add_subplot(141, projection='3d')
     ax_rear  = fig.add_subplot(142, projection='3d')
     ax_front = fig.add_subplot(143, projection='3d')
     ax_full  = fig.add_subplot(144, projection='3d')
 
-    # Common axis limits
     xlim = [0, max(ax_shift) + 0.1]
     ylim = [0, max(ay_shift) + 0.1]
     zlim = [0, max(az_shift) + 0.1]
 
-    for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
-        ax_view.set_xlim(xlim)
-        ax_view.set_ylim(ylim)
-        ax_view.set_zlim(zlim)
-        ax_view.set_xlabel("Ax")
-        ax_view.set_ylabel("Ay")
-        ax_view.set_zlabel("Az")
+    for view in [ax_top, ax_rear, ax_front, ax_full]:
+        view.set_xlim(xlim)
+        view.set_ylim(ylim)
+        view.set_zlim(zlim)
+        view.set_xlabel("Ax (m/s²)")
+        view.set_ylabel("Ay (m/s²)")
+        view.set_zlabel("Az (m/s²)")
 
-    # Different view angles
-    # View angles
-    ax_top.view_init(90, -90)    # top
-    ax_rear.view_init(-90, 90)    # rear
-    ax_front.view_init(-30, 60)    # front
-    ax_full.view_init(30, -60)   # full trajectory
+    # === Match static plot views ===
+    ax_top.view_init(90, -90)       # Side view (top)
+    ax_rear.view_init(-90, 90)      # Rear view
+    ax_front.view_init(-90, 90)     # Front view
+    ax_full.view_init(30, -60)      # 3D full trajectory
 
     # Titles
     ax_top.set_title("Side View")
@@ -559,70 +510,82 @@ def animate_imu_low_accel(csv_file="raw.csv", out_file="imu_low_accelfilt.gif"):
     ax_front.set_title("Front View")
     ax_full.set_title("3D Full Trajectory")
 
-    # Trajectory line and point for each view
-    lines, points = [], []
-    for ax_view in [ax_top, ax_rear, ax_front, ax_full]:
-        line_1, = ax_view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
-        line_2, = ax_view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
-        line_3, = ax_view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
+    # === Initialize lines and points for animation ===
+    def init_view(ax_view):
+        line1, = ax_view.plot([], [], [], "r-", lw=2, label="Backswing")
+        line2, = ax_view.plot([], [], [], "g-", lw=2, label="Downswing")
+        line3, = ax_view.plot([], [], [], "g-", lw=2, label="Follow-through")
         point, = ax_view.plot([], [], [], "ko")
-        lines.append(line_1)
-        lines.append(line_2)
-        lines.append(line_3)
-        points.append(point)
+        return [line1, line2, line3, point]
 
-    ax_full.legend()
+    lines_top   = init_view(ax_top)
+    lines_rear  = init_view(ax_rear)
+    lines_front = init_view(ax_front)
+    lines_full  = init_view(ax_full)
 
-    # === Text box for Speed & Angle ===
+    all_lines = lines_top + lines_rear + lines_front + lines_full
+    ax_full.legend(loc='upper right')
+
     text_box = fig.text(0.5, 0.02, "", fontsize=12, ha='center', va='center')
 
+    # === Update function ===
     def update(i):
-        # segment indexes
-        for v in range(4):  # for each subplot view
-            # 3 lines per view (backswing, downswing, follow)
-            back_line = lines[v*3 + 0]
-            down_line = lines[v*3 + 1]
-            follow_line = lines[v*3 + 2]
-            point = points[v]
+        # Current trajectory segments
+        idx_back = min(i, top_idx)
+        idx_down = min(max(i - top_idx, 0), impact_idx - top_idx)
+        idx_follow = max(i - impact_idx, 0)
 
-            # Backswing segment
-            idx_back = min(i, top_idx)
-            back_line.set_data(ax_shift[:idx_back], ay_shift[:idx_back])
-            back_line.set_3d_properties(az_shift[:idx_back])
+        # === Top (Side View) ===
+        lines_top[0].set_data(ax_shift[:idx_back], ay_shift[:idx_back])
+        lines_top[0].set_3d_properties(az_shift[:idx_back])
+        lines_top[1].set_data(ax_shift[top_idx:top_idx+idx_down], ay_shift[top_idx:top_idx+idx_down])
+        lines_top[1].set_3d_properties(az_shift[top_idx:top_idx+idx_down])
+        lines_top[2].set_data(ax_shift[impact_idx:impact_idx+idx_follow], ay_shift[impact_idx:impact_idx+idx_follow])
+        lines_top[2].set_3d_properties(az_shift[impact_idx:impact_idx+idx_follow])
+        lines_top[3].set_data([ax_shift[i]], [ay_shift[i]])
+        lines_top[3].set_3d_properties([az_shift[i]])
 
-            # Downswing segment
-            if i > top_idx:
-                idx_down = min(i, impact_idx)
-                down_line.set_data(ax_shift[top_idx:idx_down], ay_shift[top_idx:idx_down])
-                down_line.set_3d_properties(az_shift[top_idx:idx_down])
-            else:
-                down_line.set_data([], [])
-                down_line.set_3d_properties([])
+        # === Rear View (x=z, z=x, flipped x) ===
+        lines_rear[0].set_data(-az_shift[:idx_back]+1, ay_shift[:idx_back])
+        lines_rear[0].set_3d_properties(back_ax[:idx_back]+1)
+        lines_rear[1].set_data(-az_shift[top_idx:top_idx+idx_down]+1, ay_shift[top_idx:top_idx+idx_down])
+        lines_rear[1].set_3d_properties(down_ax[:idx_down]+1)
+        lines_rear[2].set_data(-az_shift[impact_idx:impact_idx+idx_follow]+1, ay_shift[impact_idx:impact_idx+idx_follow])
+        lines_rear[2].set_3d_properties(follow_ax[:idx_follow]+1)
+        lines_rear[3].set_data([-az_shift[i]+1], [ay_shift[i]])
+        lines_rear[3].set_3d_properties([ax_shift[i]+1])
 
-            # Follow-through segment
-            if i > impact_idx:
-                idx_follow = min(i, len(ax_shift)-1)
-                follow_line.set_data(ax_shift[impact_idx:idx_follow], ay_shift[impact_idx:idx_follow])
-                follow_line.set_3d_properties(az_shift[impact_idx:idx_follow])
-            else:
-                follow_line.set_data([], [])
-                follow_line.set_3d_properties([])
+        # === Front View (x=-z, z=x) ===
+        lines_front[0].set_data(az_shift[:idx_back]+1, ay_shift[:idx_back])
+        lines_front[0].set_3d_properties(ax_shift[:idx_back]+1)
+        lines_front[1].set_data(az_shift[top_idx:top_idx+idx_down]+1, ay_shift[top_idx:top_idx+idx_down])
+        lines_front[1].set_3d_properties(ax_shift[top_idx:top_idx+idx_down]+1)
+        lines_front[2].set_data(az_shift[impact_idx:impact_idx+idx_follow]+1, ay_shift[impact_idx:impact_idx+idx_follow])
+        lines_front[2].set_3d_properties(ax_shift[impact_idx:impact_idx+idx_follow]+1)
+        lines_front[3].set_data([az_shift[i]+1], [ay_shift[i]])
+        lines_front[3].set_3d_properties([ax_shift[i]+1])
 
-            # Current point marker
-            point.set_data([ax_shift[i]], [ay_shift[i]])
-            point.set_3d_properties([az_shift[i]])
+        # === Full 3D ===
+        lines_full[0].set_data(ax_shift[:idx_back], ay_shift[:idx_back])
+        lines_full[0].set_3d_properties(az_shift[:idx_back])
+        lines_full[1].set_data(ax_shift[top_idx:top_idx+idx_down], ay_shift[top_idx:top_idx+idx_down])
+        lines_full[1].set_3d_properties(az_shift[top_idx:top_idx+idx_down])
+        lines_full[2].set_data(ax_shift[impact_idx:impact_idx+idx_follow], ay_shift[impact_idx:impact_idx+idx_follow])
+        lines_full[2].set_3d_properties(az_shift[impact_idx:impact_idx+idx_follow])
+        lines_full[3].set_data([ax_shift[i]], [ay_shift[i]])
+        lines_full[3].set_3d_properties([az_shift[i]])
 
-        # Update text box
+        # === Update info box ===
         impact_time, face_angle, impact_speed = get_Impact_time_face_angle_velocity()
-        text_box.set_text(
-            f"Time: {impact_time:.6f}s  |  Speed: {impact_speed:.3f} m/s  |  Angle: {face_angle:.3f}°"
-        )
-        return lines + points
+        text_box.set_text(f"Time: {impact_time:.6f}s  |  Speed: {impact_speed:.3f} m/s  |  Angle: {face_angle:.1f}°")
+
+        return all_lines
 
     ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=True)
-    ani.save(out_file, writer="pillow")
+    ani.save(out_file, writer="ffmpeg")
     print(f"[OK] Animation saved as {out_file}")
     plt.show()
+
 
 if __name__ == "__main__":
     has_run = False
@@ -861,7 +824,7 @@ if __name__ == "__main__":
 
     # plt.tight_layout()
     # plt.show()
-    # animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
+    animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
     plot_imu_low_accel_trajectory()
 
 
