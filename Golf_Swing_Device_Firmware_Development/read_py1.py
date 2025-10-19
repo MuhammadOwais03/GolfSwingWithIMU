@@ -13,7 +13,7 @@ import os
 # GolfIMU class remains unchanged
 class GolfIMU:
     def __init__(self):
-        self.PORT = 'COM3'  # Change to your serial port
+        self.PORT = '/dev/ttyUSB0'  # Change to your serial port
         self.BAUD = 115200
         self.TIMEOUT = 2
         self.CALIBRATION_SAMPLES = 20
@@ -227,9 +227,9 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
         view.set_zlabel("Az (m/s²)")
 
     # View angles
-    ax_top.view_init(90, -90)    # top
+    ax_top.view_init(90,-90)    # top
     ax_rear.view_init(-90, 90)    # rear
-    ax_front.view_init(-30, 60)    # front
+    ax_front.view_init(-90, 90)    # front
     ax_full.view_init(30, -60)   # full trajectory
 
     # Titles
@@ -237,21 +237,50 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
     ax_rear.set_title("Rear View")
     ax_front.set_title("Front View")
     ax_full.set_title("3D Full Trajectory")
+    
+    # == side view ==
+    ax_top.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
+    ax_top.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
+    if follow_ax.size > 0:
+            ax_top.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
+    ax_top.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
+    
+    # == rear view ==  x=z and z=x
+    ax_rear.plot(-back_az+1, back_ay, back_ax+1, "r-", lw=2, label="Backswing")
+    ax_rear.plot(-down_az+1, down_ay, down_ax+1, "g-", lw=2, label="Downswing")
+    if follow_az.size > 0:
+            ax_rear.plot(-follow_az+1, follow_ay, follow_ax+1, "g-", lw=2, label="Follow-through")
+    ax_rear.plot([-az_shift[-1] + 1], [ay_shift[-1]], [ax_shift[-1] + 1], "ko")
+    
+     # == front view ==  x=-z and z=x
+    ax_front.plot(back_az + 1, back_ay, back_ax + 1, "r-", lw=2, label="Backswing")
+    ax_front.plot(down_az + 1, down_ay, down_ax + 1, "g-", lw=2, label="Downswing")
+    if follow_az.size > 0:
+            ax_front.plot(follow_az + 1, follow_ay, follow_ax + 1, "g-", lw=2, label="Follow-through")
+    ax_front.plot([az_shift[-1] + 1] , [ay_shift[-1] ], [ax_shift[-1] + 1] , "ko")
+    
+    # == 3d view ==
+    ax_full.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
+    ax_full.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
+    if follow_ax.size > 0:
+            ax_full.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
+    ax_full.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
+    
 
-    # === Plot phases with colors ===
-    for view in [ax_top, ax_rear, ax_front, ax_full]:
-        # Backswing in red
-        view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
+    # # === Plot phases with colors ===
+    # for view in [ax_top, ax_rear, ax_front, ax_full]:
+    #     # Backswing in red
+    #     view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
         
-        # Downswing in green
-        view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
+    #     # Downswing in green
+    #     view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
         
-        # Follow-through in blue (optional)
-        if follow_ax.size > 0:
-            view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
+    #     # Follow-through in blue (optional)
+    #     if follow_ax.size > 0:
+    #         view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
         
-        # Final point
-        view.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
+    #     # Final point
+    #     view.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
 
     # === Optional info box ===
     impact_time, face_angle, imapact_speed = get_Impact_time_face_angle_velocity()
@@ -263,6 +292,174 @@ def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
 
     plt.tight_layout()
     plt.show()
+
+
+
+
+# def plot_imu_low_accel_trajectory(csv_file="raw.csv"):
+#     try:
+#         df = pd.read_csv(csv_file)
+#     except FileNotFoundError:
+#         print(f"Error: {csv_file} not found.")
+#         return
+
+#     # === Extract filtered imu_low_acceleration ===
+#     t = df["time"].values
+#     ax = df["Ax_filt"].values
+#     ay = df["Ay_filt"].values
+#     az = df["Az_filt"].values
+
+#     # === Shift to positive quadrant (optional) ===
+#     ax_shift = ax - min(ax) if min(ax) < 0 else ax
+#     ay_shift = ay - min(ay) if min(ay) < 0 else ay
+#     az_shift = az - min(az) if min(az) < 0 else az
+
+#     # === Identify impact point using vibration (high frequency accelerations) ===
+#     df['vibe_mag'] = np.sqrt(df['high_ax']**2 + df['high_ay']**2 + df['high_az']**2)
+#     impact_idx = df['vibe_mag'].argmax()
+
+#     # === Identify top of backswing: last sign change in Gz (yaw rate) before impact ===
+#     pre_impact_df = df.iloc[:impact_idx + 1]
+#     gz_sign = np.sign(pre_impact_df['Gz'].values)
+#     sign_diff = np.diff(gz_sign)
+#     sign_change_idxs = np.where(sign_diff != 0)[0]
+#     if len(sign_change_idxs) > 0:
+#         top_idx = sign_change_idxs[-1] + 1
+#     else:
+#         top_idx = 0  # Default to start if no sign change
+
+#     # === Split data into phases ===
+#     # Backswing: start to top
+#     back_ax = ax_shift[:top_idx + 1]
+#     back_ay = ay_shift[:top_idx + 1]
+#     back_az = az_shift[:top_idx + 1]
+
+#     # Downswing: top to impact
+#     down_ax = ax_shift[top_idx:impact_idx + 1]
+#     down_ay = ay_shift[top_idx:impact_idx + 1]
+#     down_az = az_shift[top_idx:impact_idx + 1]
+
+#     # Follow-through: after impact (optional, in blue)
+#     follow_ax = ax_shift[impact_idx:]
+#     follow_ay = ay_shift[impact_idx:]
+#     follow_az = az_shift[impact_idx:]
+
+#     # # === Create figure and subplots ===
+#     # fig = plt.figure(figsize=(20, 6))
+#     # ax_top   = fig.add_subplot(141)
+#     # ax_rear  = fig.add_subplot(142)
+#     # ax_front = fig.add_subplot(143)
+#     # ax_full  = fig.add_subplot(144)
+
+#     # # Common limits
+#     # xlim = [0, max(ax_shift) + 0.1]
+#     # ylim = [0, max(ay_shift) + 0.1]
+#     # zlim = [0, max(az_shift) + 0.1]
+#     # for view in [ax_top, ax_rear, ax_front, ax_full]:
+#     #     view.set_xlim(xlim)
+#     #     view.set_ylim(ylim)
+#     #     # view.set_zlim(zlim)
+#     #     view.set_xlabel("Ax (m/s²)")
+#     #     view.set_ylabel("Ay (m/s²)")
+#     #     # view.set_zlabel("Az (m/s²)")
+
+#     # # View angles
+#     # ax_top.view_init(90, -90)    # top
+#     # ax_rear.view_init(-90, 90)    # rear
+#     # ax_front.view_init(-30, 60)    # front
+#     # ax_full.view_init(30, -60)   # full trajectory
+
+#     # # Titles
+#     # ax_top.set_title("Side View")
+#     # ax_rear.set_title("Rear View")
+#     # ax_front.set_title("Front View")
+#     # ax_full.set_title("3D Full Trajectory")
+    
+#     # # === Plot Side View Trajectory Line ===
+#     # view.plot(back_ax, back_ay, "r-", lw=2, label="Backswing")
+#     #      # Downswing in green
+#     # view.plot(down_ax, down_ay, "g-", lw=2, label="Downswing")
+        
+#     #     # Follow-through in blue (optional)
+#     # if follow_ax.size > 0:
+#     #         view.plot(follow_ax, follow_ay, "g-", lw=2, label="Follow-through")
+        
+#     #     # Final point
+#     # view.plot([ax_shift[-1]], [ay_shift[-1]], "ko")
+    
+
+#     # # === Plot phases with colors ===
+#     # for view in [ax_top, ax_rear, ax_front, ax_full]:
+#     #     # Backswing in red
+#     #     view.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
+        
+#     #     # Downswing in green
+#     #     view.plot(down_ax, down_ay, down_az, "g-", lw=2, label="Downswing")
+        
+#     #     # Follow-through in blue (optional)
+#     #     if follow_ax.size > 0:
+#     #         view.plot(follow_ax, follow_ay, follow_az, "g-", lw=2, label="Follow-through")
+        
+#     #     # Final point
+#     #     view.plot([ax_shift[-1]], [ay_shift[-1]], [az_shift[-1]], "ko")
+    
+#     fig, axes = plt.subplots(1, 4, figsize=(24, 6))  # Wider width to fit all plots
+#     ax_top, ax_rear, ax_front, ax_full = axes
+    
+#     # === Top View (Ax vs Ay) ===
+#     ax_top.plot(back_az, back_ax, 'r-', lw=2, label='Backswing')            # x,y x,z y,x y,z z,x z,y
+#     ax_top.plot(down_az, down_ax, 'g-', lw=2, label='Downswing')
+#     if follow_az.size > 0:
+#         ax_top.plot(follow_az, follow_ax, 'g-', lw=2, label='Follow-through')
+#     ax_top.set_xlabel("Az (m/s²)")
+#     ax_top.set_ylabel("Ax (m/s²)")
+#     ax_top.set_title("Top View (Az vs Ax)")
+
+#     # === Rear View (Ay vs Az) ===
+#     ax_rear.plot(back_ay, back_az, 'r-', lw=2, label='Backswing')
+#     ax_rear.plot(down_ay, down_az, 'g-', lw=2, label='Downswing')
+#     if follow_ax.size > 0:
+#         ax_rear.plot(follow_ay, follow_az, 'b-', lw=2, label='Follow-through')
+#     ax_rear.set_xlabel("Ay (m/s²)")
+#     ax_rear.set_ylabel("Az (m/s²)")
+#     ax_rear.set_title("Rear View (Ay vs Az)")
+
+#     # === Front View (Ax vs Az) ===
+#     ax_front.plot(back_ax, back_az, 'r-', lw=2, label='Backswing')
+#     ax_front.plot(down_ax, down_az, 'g-', lw=2, label='Downswing')
+#     if follow_ax.size > 0:
+#         ax_front.plot(follow_ax, follow_az, 'b-', lw=2, label='Follow-through')
+#     ax_front.set_xlabel("Ax (m/s²)")
+#     ax_front.set_ylabel("Az (m/s²)")
+#     ax_front.set_title("Front View (Ax vs Az)")
+
+#     # === Full View (Combined Projection Ax vs Ay) ===
+#     ax_full.plot(back_ax, back_ay, 'r-', lw=2, label='Backswing')
+#     ax_full.plot(down_ax, down_ay, 'g-', lw=2, label='Downswing')
+#     if follow_ax.size > 0:
+#         ax_full.plot(follow_ax, follow_ay, 'b-', lw=2, label='Follow-through')
+#     ax_full.set_xlabel("Ax (m/s²)")
+#     ax_full.set_ylabel("Ay (m/s²)")
+#     ax_full.set_title("Full 2D Trajectory (Ax vs Ay)")
+
+#     # Finalize all
+#     for ax in [ax_top, ax_rear, ax_front, ax_full]:
+#         ax.grid(True)
+#         ax.legend()
+
+#     # === Optional info box ===
+#     impact_time, face_angle, imapact_speed = get_Impact_time_face_angle_velocity()
+#     text_str = f"Final Time: {impact_time:.9f}s  |  Final Speed: {imapact_speed:.3f} m/s  |  Angle: {face_angle:.1f}°"
+#     fig.text(0.5, 0.02, text_str, fontsize=12, ha='center', va='center')
+
+#     # Add legend to the full view (or adjust as needed)
+#     ax_full.legend(loc='upper right')
+
+#     plt.tight_layout()
+#     plt.show()
+
+
+
 
 def animate_imu_low_accel(csv_file="raw.csv", out_file="imu_low_accelfilt.gif"):
     try:
@@ -568,103 +765,103 @@ if __name__ == "__main__":
     })
     df_raw.to_csv("raw.csv", index=False)
 
-    # === Improved Plot Layout ===
-    fig, axs = plt.subplots(3, 3, figsize=(20, 14))  # larger figure
-    plt.subplots_adjust(wspace=0.3, hspace=0.5)      # spacing between plots
+    # # === Improved Plot Layout ===
+    # fig, axs = plt.subplots(3, 3, figsize=(20, 14))  # larger figure
+    # plt.subplots_adjust(wspace=0.3, hspace=0.5)      # spacing between plots
 
-    # 1: Raw imu_low_acceleration
-    axs[0, 0].plot(t_arr, imu_low_accel_arr[:, 0], label="Ax", linewidth=1)
-    axs[0, 0].plot(t_arr, imu_low_accel_arr[:, 1], label="Ay", linewidth=1)
-    axs[0, 0].plot(t_arr, imu_low_accel_arr[:, 2], label="Az", linewidth=1)
-    axs[0, 0].set_title("Raw imu_low_acceleration (m/s²)")
-    axs[0, 0].legend(loc='upper right', fontsize=8)
-    axs[0, 0].grid(True)
+    # # 1: Raw imu_low_acceleration
+    # axs[0, 0].plot(t_arr, imu_low_accel_arr[:, 0], label="Ax", linewidth=1)
+    # axs[0, 0].plot(t_arr, imu_low_accel_arr[:, 1], label="Ay", linewidth=1)
+    # axs[0, 0].plot(t_arr, imu_low_accel_arr[:, 2], label="Az", linewidth=1)
+    # axs[0, 0].set_title("Raw imu_low_acceleration (m/s²)")
+    # axs[0, 0].legend(loc='upper right', fontsize=8)
+    # axs[0, 0].grid(True)
 
-    # 2: Raw imu_gyroscope
-    axs[0, 1].plot(t_arr, imu_gyro[:, 0], label="Gx")
-    axs[0, 1].plot(t_arr, imu_gyro[:, 1], label="Gy")
-    axs[0, 1].plot(t_arr, imu_gyro[:, 2], label="Gz")
-    axs[0, 1].set_title("Raw imu_gyroscope (rad/s)")
-    axs[0, 1].legend(loc='upper right', fontsize=8)
-    axs[0, 1].grid(True)
+    # # 2: Raw imu_gyroscope
+    # axs[0, 1].plot(t_arr, imu_gyro[:, 0], label="Gx")
+    # axs[0, 1].plot(t_arr, imu_gyro[:, 1], label="Gy")
+    # axs[0, 1].plot(t_arr, imu_gyro[:, 2], label="Gz")
+    # axs[0, 1].set_title("Raw imu_gyroscope (rad/s)")
+    # axs[0, 1].legend(loc='upper right', fontsize=8)
+    # axs[0, 1].grid(True)
 
-    # 3: Filtered imu_low_acceleration
-    axs[0, 2].plot(t_arr, ax_filt, label="Ax")
-    axs[0, 2].plot(t_arr, ay_filt, label="Ay")
-    axs[0, 2].plot(t_arr, az_filt, label="Az")
-    axs[0, 2].set_title("Filtered imu_low_acceleration (m/s²)")
-    axs[0, 2].legend(loc='upper right', fontsize=8)
-    axs[0, 2].grid(True)
+    # # 3: Filtered imu_low_acceleration
+    # axs[0, 2].plot(t_arr, ax_filt, label="Ax")
+    # axs[0, 2].plot(t_arr, ay_filt, label="Ay")
+    # axs[0, 2].plot(t_arr, az_filt, label="Az")
+    # axs[0, 2].set_title("Filtered imu_low_acceleration (m/s²)")
+    # axs[0, 2].legend(loc='upper right', fontsize=8)
+    # axs[0, 2].grid(True)
 
-    # 4: Filtered imu_gyroscope
-    axs[1, 0].plot(t_arr, gx_filt, label="Gx")
-    axs[1, 0].plot(t_arr, gy_filt, label="Gy")
-    axs[1, 0].plot(t_arr, gz_filt, label="Gz")
-    axs[1, 0].set_title("Filtered imu_gyroscope (rad/s)")
-    axs[1, 0].legend(loc='upper right', fontsize=8)
-    axs[1, 0].grid(True)
+    # # 4: Filtered imu_gyroscope
+    # axs[1, 0].plot(t_arr, gx_filt, label="Gx")
+    # axs[1, 0].plot(t_arr, gy_filt, label="Gy")
+    # axs[1, 0].plot(t_arr, gz_filt, label="Gz")
+    # axs[1, 0].set_title("Filtered imu_gyroscope (rad/s)")
+    # axs[1, 0].legend(loc='upper right', fontsize=8)
+    # axs[1, 0].grid(True)
 
-    # 5: Velocity vs Time
-    axs[1, 1].plot(t_arr, vel_global[:, 0], label="Vx")
-    axs[1, 1].plot(t_arr, vel_global[:, 1], label="Vy")
-    axs[1, 1].plot(t_arr, vel_global[:, 2], label="Vz")
-    axs[1, 1].set_title("Velocity vs Time")
-    axs[1, 1].legend(loc='upper right', fontsize=8)
-    axs[1, 1].grid(True)
+    # # 5: Velocity vs Time
+    # axs[1, 1].plot(t_arr, vel_global[:, 0], label="Vx")
+    # axs[1, 1].plot(t_arr, vel_global[:, 1], label="Vy")
+    # axs[1, 1].plot(t_arr, vel_global[:, 2], label="Vz")
+    # axs[1, 1].set_title("Velocity vs Time")
+    # axs[1, 1].legend(loc='upper right', fontsize=8)
+    # axs[1, 1].grid(True)
 
-    # 6: Vibration vs Time
-    axs[1, 2].plot(t_arr, imu_high_accel_arr[:, 0], label="Hax")
-    axs[1, 2].plot(t_arr, imu_high_accel_arr[:, 1], label="Hay")
-    axs[1, 2].plot(t_arr, imu_high_accel_arr[:, 2], label="Haz")
-    axs[1, 2].set_title("IMU Vibration vs Time")
-    axs[1, 2].legend(loc='upper right', fontsize=8)
-    axs[1, 2].grid(True)
+    # # 6: Vibration vs Time
+    # axs[1, 2].plot(t_arr, imu_high_accel_arr[:, 0], label="Hax")
+    # axs[1, 2].plot(t_arr, imu_high_accel_arr[:, 1], label="Hay")
+    # axs[1, 2].plot(t_arr, imu_high_accel_arr[:, 2], label="Haz")
+    # axs[1, 2].set_title("IMU Vibration vs Time")
+    # axs[1, 2].legend(loc='upper right', fontsize=8)
+    # axs[1, 2].grid(True)
 
-    # 7: Position vs Time
-    axs[2, 0].plot(t_arr, pos_shift[:, 0], label="X")
-    axs[2, 0].plot(t_arr, pos_shift[:, 1], label="Y")
-    axs[2, 0].plot(t_arr, pos_shift[:, 2], label="Z")
-    axs[2, 0].set_title("Position vs Time")
-    axs[2, 0].legend(loc='upper right', fontsize=8)
-    axs[2, 0].grid(True)
+    # # 7: Position vs Time
+    # axs[2, 0].plot(t_arr, pos_shift[:, 0], label="X")
+    # axs[2, 0].plot(t_arr, pos_shift[:, 1], label="Y")
+    # axs[2, 0].plot(t_arr, pos_shift[:, 2], label="Z")
+    # axs[2, 0].set_title("Position vs Time")
+    # axs[2, 0].legend(loc='upper right', fontsize=8)
+    # axs[2, 0].grid(True)
 
-    # 8: Euler Angles (from euler_deg)
-    axs[2, 1].plot(t_arr, euler_deg[:, 0], label="Yaw")
-    axs[2, 1].plot(t_arr, euler_deg[:, 1], label="Pitch")
-    axs[2, 1].plot(t_arr, euler_deg[:, 2], label="Roll")
-    axs[2, 1].set_title("Euler Angles vs Time (deg)")
-    axs[2, 1].legend(loc='upper right', fontsize=8)
-    axs[2, 1].grid(True)
+    # # 8: Euler Angles (from euler_deg)
+    # axs[2, 1].plot(t_arr, euler_deg[:, 0], label="Yaw")
+    # axs[2, 1].plot(t_arr, euler_deg[:, 1], label="Pitch")
+    # axs[2, 1].plot(t_arr, euler_deg[:, 2], label="Roll")
+    # axs[2, 1].set_title("Euler Angles vs Time (deg)")
+    # axs[2, 1].legend(loc='upper right', fontsize=8)
+    # axs[2, 1].grid(True)
 
-    # 9: Euler Angles (from imu_euler)
-    axs[2, 2].plot(t_arr, imu_euler[:, 0], label="Pitch")
-    axs[2, 2].plot(t_arr, imu_euler[:, 1], label="Roll")
-    axs[2, 2].plot(t_arr, imu_euler[:, 2], label="Yaw")
-    axs[2, 2].set_title("IMU Euler Angles vs Time (rad)")
-    axs[2, 2].legend(loc='upper right', fontsize=8)
-    axs[2, 2].grid(True)
+    # # 9: Euler Angles (from imu_euler)
+    # axs[2, 2].plot(t_arr, imu_euler[:, 0], label="Pitch")
+    # axs[2, 2].plot(t_arr, imu_euler[:, 1], label="Roll")
+    # axs[2, 2].plot(t_arr, imu_euler[:, 2], label="Yaw")
+    # axs[2, 2].set_title("IMU Euler Angles vs Time (rad)")
+    # axs[2, 2].legend(loc='upper right', fontsize=8)
+    # axs[2, 2].grid(True)
 
-    # === 3D Plot in separate figure ===
-    fig3d = plt.figure(figsize=(8, 6))
-    ax3d = fig3d.add_subplot(111, projection="3d")
-    ax_filt_shift = ax_filt - min(ax_filt) if min(ax_filt) < 0 else ax_filt
-    ay_filt_shift = ay_filt - min(ay_filt) if min(ay_filt) < 0 else ay_filt
-    az_filt_shift = az_filt - min(az_filt) if min(az_filt) < 0 else az_filt
-    ax3d.plot(ax_filt_shift, ay_filt_shift, az_filt_shift, "r-")
-    ax3d.set_xlim([0, max(ax_filt_shift) + 0.1])
-    ax3d.set_ylim([0, max(ay_filt_shift) + 0.1])
-    ax3d.set_zlim([0, max(az_filt_shift) + 0.1])
-    ax3d.set_title("3D IMU Low Acceleration (Filtered)")
-    ax3d.set_xlabel("Ax (m/s²)")
-    ax3d.set_ylabel("Ay (m/s²)")
-    ax3d.set_zlabel("Az (m/s²)")
-    ax3d.grid(True)
+    # # === 3D Plot in separate figure ===
+    # fig3d = plt.figure(figsize=(8, 6))
+    # ax3d = fig3d.add_subplot(111, projection="3d")
+    # ax_filt_shift = ax_filt - min(ax_filt) if min(ax_filt) < 0 else ax_filt
+    # ay_filt_shift = ay_filt - min(ay_filt) if min(ay_filt) < 0 else ay_filt
+    # az_filt_shift = az_filt - min(az_filt) if min(az_filt) < 0 else az_filt
+    # ax3d.plot(ax_filt_shift, ay_filt_shift, az_filt_shift, "r-")
+    # ax3d.set_xlim([0, max(ax_filt_shift) + 0.1])
+    # ax3d.set_ylim([0, max(ay_filt_shift) + 0.1])
+    # ax3d.set_zlim([0, max(az_filt_shift) + 0.1])
+    # ax3d.set_title("3D IMU Low Acceleration (Filtered)")
+    # ax3d.set_xlabel("Ax (m/s²)")
+    # ax3d.set_ylabel("Ay (m/s²)")
+    # ax3d.set_zlabel("Az (m/s²)")
+    # ax3d.grid(True)
 
-    plt.show()
+    # plt.show()
 
-    plt.tight_layout()
-    plt.show()
-    animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
+    # plt.tight_layout()
+    # plt.show()
+    # animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
     plot_imu_low_accel_trajectory()
 
 
