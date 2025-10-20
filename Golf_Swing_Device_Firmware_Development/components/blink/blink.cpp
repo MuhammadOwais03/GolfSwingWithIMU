@@ -36,3 +36,20 @@ static void configure_led(void)
     gpio_reset_pin(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 }
+
+
+// NEW: Solid ON function (call once on press)
+void blink::led_on(void) {
+    s_led_state = true;
+    blink::state = true;
+    blink_led();
+    ESP_LOGI("Blink", "LED ON (solid)");
+}
+
+// NEW: Solid OFF (call on release or timeout)
+void blink::led_off(void) {
+    s_led_state = false;
+    blink::state = false;
+    blink_led();
+    ESP_LOGI("Blink", "LED OFF");
+}

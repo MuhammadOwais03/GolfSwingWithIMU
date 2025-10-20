@@ -824,7 +824,7 @@ if __name__ == "__main__":
 
     # plt.tight_layout()
     # plt.show()
-    animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
+    # animate_imu_low_accel("raw.csv", "imu_low_accelfilt.gif")
     plot_imu_low_accel_trajectory()
 
 

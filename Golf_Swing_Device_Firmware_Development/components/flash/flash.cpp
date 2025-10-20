@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <cstring>   // for strerror
 #include <cerrno>    // for errno
+#include "esp_task_wdt.h"  // For reset
 
 static const char *TAG = "FlashFile";
 
@@ -84,7 +85,76 @@ void FlashFile::read_file()
 
 
 
+// void FlashFile::write_file(const std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings, const std::vector<std::vector<double>> eulerAngles) {
+//     // Open file for appending (creates if not exists)
+//     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
+//     if (f == nullptr) {
+//         ESP_LOGE(TAG, "Failed to open file for writing");
+//         return;
+//     }
+
+//     // Check if file is empty → write header
+//     fseek(f, 0, SEEK_END);
+//     long file_size = ftell(f);
+//     if (file_size == 0) {
+//         fprintf(f, "lax,lay,laz,hax,hay,haz,gx,gy,gz,pitch,roll,yaw,vib\n");
+//     }
+
+//     // Sanity check: expect exactly 6 values
+//     if (readings.size() == 0) {
+//         // ESP_LOGE(TAG, "Expected something in readings readings, got %d", (int)readings.size());
+//         fclose(f);
+//         return;
+//     }
+
+//     // // Write readings as CSV row
+//     // fprintf(f, "%f,%f,%f,%f,%f,%f\n",
+//     //         readings[0], readings[1], readings[2],
+//     //         readings[3], readings[4], readings[5]);
+
+//     // Ensure vib_readings size matches readings size
+//     if (vib_readings.size() != readings.size()) {
+//         ESP_LOGW(TAG, "vib_readings size (%zu) does not match readings size (%zu)", vib_readings.size(), readings.size());
+//     }
+
+//     if (eulerAngles.size() != readings.size()) {
+//         ESP_LOGW(TAG, "eulerAngles size (%zu) does not match readings size (%zu)", eulerAngles.size(), readings.size());
+//     }
+
+//     int c = 1;
+
+//     for (size_t i = 0; i < readings.size(); ++i) {
+//         const std::vector<float>& reading = readings[i];
+//         float vib = (i < vib_readings.size()) ? vib_readings[i] : 0.0f;
+
+//         // Write each reading as a CSV row with vib_reading at the end
+//         if (reading.size() == 9) {
+//             fprintf(f, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+//                     reading[0], reading[1], reading[2],
+//                     reading[3], reading[4], reading[5],
+//                     reading[6], reading[7], reading[8],
+//                     eulerAngles[i][0], eulerAngles[i][1], eulerAngles[i][2],
+//                     vib);
+//                     c++;
+//         } else {
+//             ESP_LOGW(TAG, "Skipping row with unexpected size: %zu", reading.size());
+//         }
+//     }
+
+//     fprintf(f, "EOF"); // Separate entries with a blank line
+//     ESP_LOGI(TAG, "Number of rows written: %d", c);
+
+//     fclose(f);
+//     ESP_LOGI(TAG, "Data written to %s%s", BASEPATH.c_str(), FILENAME.c_str());
+// }
+
+
 void FlashFile::write_file(const std::vector<std::vector<float>>& readings, const std::vector<float>& vib_readings, const std::vector<std::vector<double>> eulerAngles) {
+    // Include for WDT
+    #include "esp_task_wdt.h"
+    #include "freertos/FreeRTOS.h"
+    #include "freertos/task.h"
+
     // Open file for appending (creates if not exists)
     FILE *f = fopen((BASEPATH + FILENAME).c_str(), "a");
     if (f == nullptr) {
@@ -106,11 +176,6 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
         return;
     }
 
-    // // Write readings as CSV row
-    // fprintf(f, "%f,%f,%f,%f,%f,%f\n",
-    //         readings[0], readings[1], readings[2],
-    //         readings[3], readings[4], readings[5]);
-
     // Ensure vib_readings size matches readings size
     if (vib_readings.size() != readings.size()) {
         ESP_LOGW(TAG, "vib_readings size (%zu) does not match readings size (%zu)", vib_readings.size(), readings.size());
@@ -120,7 +185,10 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
         ESP_LOGW(TAG, "eulerAngles size (%zu) does not match readings size (%zu)", eulerAngles.size(), readings.size());
     }
 
-    int c = 1;
+    int c = 0;  // Start at 0, increment before log
+
+    const int RESET_BATCH = 50;  // Reset WDT every 50 rows
+    int batch_count = 0;
 
     for (size_t i = 0; i < readings.size(); ++i) {
         const std::vector<float>& reading = readings[i];
@@ -134,11 +202,23 @@ void FlashFile::write_file(const std::vector<std::vector<float>>& readings, cons
                     reading[6], reading[7], reading[8],
                     eulerAngles[i][0], eulerAngles[i][1], eulerAngles[i][2],
                     vib);
-                    c++;
+            c++;
         } else {
             ESP_LOGW(TAG, "Skipping row with unexpected size: %zu", reading.size());
         }
+
+        // FIX: Yield and reset WDT every batch
+        batch_count++;
+        if (batch_count % RESET_BATCH == 0) {
+            fflush(f);  // Flush to FS
+            esp_task_wdt_reset();  // Feed WDT
+            vTaskDelay(pdMS_TO_TICKS(1));  // Brief yield
+            ESP_LOGD(TAG, "Write batch %d complete", batch_count);
+        }
     }
+
+    fflush(f);  // Final flush
+    esp_task_wdt_reset();  // Final reset
 
     fprintf(f, "EOF"); // Separate entries with a blank line
     ESP_LOGI(TAG, "Number of rows written: %d", c);

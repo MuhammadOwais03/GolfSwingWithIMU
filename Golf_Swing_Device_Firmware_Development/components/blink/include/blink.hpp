@@ -14,4 +14,6 @@ class blink {
         void blink_init(void);
         void blink_toggle(void);
         bool is_on() const { return state; }
+        void led_on(void);   // Solid ON
+        void led_off(void);  // Solid OFF
 };
