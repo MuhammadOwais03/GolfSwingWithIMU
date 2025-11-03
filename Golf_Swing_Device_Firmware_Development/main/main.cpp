@@ -18,6 +18,7 @@ extern "C" void app_main(void)
     blinker.blink_init();
     vib.vibrational_setup();
     reader.uart_init();
+
     imu.setup();
     
     printf("%d\n", GPIO_NUM_15);
@@ -27,6 +28,9 @@ extern "C" void app_main(void)
 
     while (1) {
         reader.read_python_file();
+        // imu.loop();
+        // const RawAccelVec& high_accel = imu.getRawHighAccelerationIng();
+        // printf("%.2f,%.2f,%.2f\n", high_accel[0], high_accel[1], high_accel[2]);
         vTaskDelay(pdMS_TO_TICKS(500));
     };
 
