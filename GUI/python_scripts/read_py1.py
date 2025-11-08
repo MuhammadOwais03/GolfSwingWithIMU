@@ -25,7 +25,7 @@ BASE_PATH = "python_scripts/data"
 # GolfIMU class remains unchanged
 class GolfIMU:
     def __init__(self):
-        self.PORT = '/dev/ttyUSB0'  # Change to your serial port
+        self.PORT = 'COM3'  # Change to your serial port
         self.BAUD = 115200
         self.TIMEOUT = 2
         self.CALIBRATION_SAMPLES = 20
@@ -45,6 +45,7 @@ class GolfIMU:
 
     def read_data(self):
         self.ser.write(b"READ_FILE\r\n")
+        print(self.ser.readline().decode())
         file_content = ""
         count = 0
 

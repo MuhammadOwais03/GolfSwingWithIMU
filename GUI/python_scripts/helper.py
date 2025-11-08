@@ -1,8 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 import pandas as pd
-from multiprocessing.dummy import Pool
-import imageio.v3 as iio  
+from multiprocessing import Pool
+import imageio.v2 as iio  
 from pathlib import Path
 import os 
 
@@ -180,14 +181,14 @@ def plot_imu_low_accel_trajectory(csv_file=f"{BASE_PATH}/raw.csv"):
     ax_rear.plot(-down_az+1, down_ay, down_ax+1, "g-", lw=2, label="Downswing")
     if follow_az.size > 0:
             ax_rear.plot(-follow_az+1, follow_ay, follow_ax+1, "g-", lw=2, label="Follow-through")
-    ax_rear.plot([-az_shift[-1] + 1], [ay_shift[-1]], [ax_shift[-1] + 1], "ko")
+    ax_rear.plot([-az_shift[-1]], [ay_shift[-1]], [ax_shift[-1]], "ko")
     
      # == front view ==  x=-z and z=x
     ax_front.plot(back_az + 1, back_ay, back_ax + 1, "r-", lw=2, label="Backswing")
     ax_front.plot(down_az + 1, down_ay, down_ax + 1, "g-", lw=2, label="Downswing")
     if follow_az.size > 0:
             ax_front.plot(follow_az + 1, follow_ay, follow_ax + 1, "g-", lw=2, label="Follow-through")
-    ax_front.plot([az_shift[-1] + 1] , [ay_shift[-1] ], [ax_shift[-1] + 1] , "ko")
+    ax_front.plot([az_shift[-1]] , [ay_shift[-1] ], [ax_shift[-1]] , "ko")
     
     # == 3d view ==
     ax_full.plot(back_ax, back_ay, back_az, "r-", lw=2, label="Backswing")
@@ -206,98 +207,183 @@ def plot_imu_low_accel_trajectory(csv_file=f"{BASE_PATH}/raw.csv"):
 
     plt.tight_layout()
     plt.show()
+    plt.close('all')
 
 
+
+# def render_frame(args):
+    
+#     i, back_ax, back_ay, back_az, down_ax, down_ay, down_az, follow_ax, follow_ay, follow_az, \
+#     ax_shift, ay_shift, az_shift, top_idx, impact_idx, text_str, temp_dir = args
+    
+#     # Create figure for this frame
+#     fig = plt.figure(figsize=(20, 6), dpi=100)
+#     ax_top   = fig.add_subplot(141, projection='3d')
+#     ax_rear  = fig.add_subplot(142, projection='3d')
+#     ax_front = fig.add_subplot(143, projection='3d')
+#     ax_full  = fig.add_subplot(144, projection='3d')
+
+#     # Limits (precomputed for consistency)
+#     xlim = [0, max(ax_shift) + 0.1]
+#     ylim = [0, max(ay_shift) + 0.1]
+#     zlim = [0, max(az_shift) + 0.1]
+
+#     for view in [ax_top, ax_rear, ax_front, ax_full]:
+#         view.set_xlim(xlim)
+#         view.set_ylim(ylim)
+#         view.set_zlim(zlim)
+#         view.set_xlabel("Ax (m/s²)")
+#         view.set_ylabel("Ay (m/s²)")
+#         view.set_zlabel("Az (m/s²)")
+
+#     ax_top.view_init(90, -90)
+#     ax_rear.view_init(-90, 90)
+#     ax_front.view_init(-90, -90)
+#     ax_full.view_init(30, -60)
+    
+
+#     ax_top.set_title("Side View")
+#     ax_rear.set_title("Rear View")
+#     ax_front.set_title("Front View")
+#     ax_full.set_title("3D Full Trajectory")
+    
+
+#     fig.text(0.5, 0.02, text_str, fontsize=12, ha='center', va='center')
+    
+
+#     # Cumulative indices
+#     idx_back = min(i + 1, len(back_ax))
+#     idx_down = min(i - top_idx + 1, len(down_ax)) if i >= top_idx else 0
+#     idx_follow = min(i - impact_idx + 1, len(follow_ax)) if i >= impact_idx else 0
+    
+
+#     # Plot Top (Side)
+#     ax_top.plot(back_ax[:idx_back], back_ay[:idx_back], back_az[:idx_back], "r-", lw=1)
+#     ax_top.plot(down_ax[:idx_down], down_ay[:idx_down], down_az[:idx_down], "g-", lw=1)
+#     ax_top.plot(follow_ax[:idx_follow], follow_ay[:idx_follow], follow_az[:idx_follow], "b-", lw=1)
+#     ax_top.plot([ax_shift[i]], [ay_shift[i]], [az_shift[i]], "ko")
+    
+
+#     # Plot Rear
+#     ax_rear.plot(-back_az[:idx_back] + 1, back_ay[:idx_back], back_ax[:idx_back] + 1, "r-", lw=1)
+#     ax_rear.plot(-down_az[:idx_down] + 1, down_ay[:idx_down], down_ax[:idx_down] + 1, "g-", lw=1)
+#     ax_rear.plot(-follow_az[:idx_follow] + 1, follow_ay[:idx_follow], follow_ax[:idx_follow] + 1, "b-", lw=1)
+#     ax_rear.plot([-az_shift[i] + 1], [ay_shift[i]], [ax_shift[i] + 1], "ko")
+    
+
+#     # Plot Front
+#     ax_front.plot(back_az[:idx_back] + 1, back_ay[:idx_back], back_ax[:idx_back] + 1, "r-", lw=1)
+#     ax_front.plot(down_az[:idx_down] + 1, down_ay[:idx_down], down_ax[:idx_down] + 1, "g-", lw=1)
+#     ax_front.plot(follow_az[:idx_follow] + 1, follow_ay[:idx_follow], follow_ax[:idx_follow] + 1, "b-", lw=1)
+#     ax_front.plot([az_shift[i] + 1], [ay_shift[i]], [ax_shift[i] + 1], "ko")
+    
+
+#     # Plot Full with labels to avoid legend warning
+#     ax_full.plot(back_ax[:idx_back], back_ay[:idx_back], back_az[:idx_back], "r-", lw=1, label="Backswing")
+#     ax_full.plot(down_ax[:idx_down], down_ay[:idx_down], down_az[:idx_down], "g-", lw=1, label="Downswing")
+#     ax_full.plot(follow_ax[:idx_follow], follow_ay[:idx_follow], follow_az[:idx_follow], "b-", lw=1, label="Follow-through")
+#     ax_full.plot([ax_shift[i]], [ay_shift[i]], [az_shift[i]], "ko")
+#     ax_full.legend(loc='upper right')
+
+
+#     # Save frame
+#     frame_path = temp_dir / f"frame_{i:04d}.png"
+#     fig.savefig(frame_path, bbox_inches='tight', dpi=100)
+#     plt.close(fig)
+
+#     return str(frame_path)
 
 def render_frame(args):
+    import matplotlib.pyplot as plt
+
     
-    i, back_ax, back_ay, back_az, down_ax, down_ay, down_az, follow_ax, follow_ay, follow_az, \
-    ax_shift, ay_shift, az_shift, top_idx, impact_idx, text_str, temp_dir = args
-    
-    # Create figure for this frame
-    fig = plt.figure(figsize=(20, 6), dpi=100)
-    ax_top   = fig.add_subplot(141, projection='3d')
-    ax_rear  = fig.add_subplot(142, projection='3d')
-    ax_front = fig.add_subplot(143, projection='3d')
-    ax_full  = fig.add_subplot(144, projection='3d')
+    try:
+        i, back_ax, back_ay, back_az, down_ax, down_ay, down_az, follow_ax, follow_ay, follow_az, \
+        ax_shift, ay_shift, az_shift, top_idx, impact_idx, text_str, temp_dir = args
 
-    # Limits (precomputed for consistency)
-    xlim = [0, max(ax_shift) + 0.1]
-    ylim = [0, max(ay_shift) + 0.1]
-    zlim = [0, max(az_shift) + 0.1]
+        # Create figure for this frame
+        fig = plt.figure(figsize=(20, 6), dpi=100)
+        ax_top   = fig.add_subplot(141, projection='3d')
+        ax_rear  = fig.add_subplot(142, projection='3d')
+        ax_front = fig.add_subplot(143, projection='3d')
+        ax_full  = fig.add_subplot(144, projection='3d')
 
-    for view in [ax_top, ax_rear, ax_front, ax_full]:
-        view.set_xlim(xlim)
-        view.set_ylim(ylim)
-        view.set_zlim(zlim)
-        view.set_xlabel("Ax (m/s²)")
-        view.set_ylabel("Ay (m/s²)")
-        view.set_zlabel("Az (m/s²)")
+        # Limits
+        xlim = [0, max(ax_shift) + 0.1]
+        ylim = [0, max(ay_shift) + 0.1]
+        zlim = [0, max(az_shift) + 0.1]
 
-    ax_top.view_init(90, -90)
-    ax_rear.view_init(-90, 90)
-    ax_front.view_init(-90, -90)
-    ax_full.view_init(30, -60)
-    
+        for view in [ax_top, ax_rear, ax_front, ax_full]:
+            view.set_xlim(xlim)
+            view.set_ylim(ylim)
+            view.set_zlim(zlim)
+            view.set_xlabel("Ax (m/s²)")
+            view.set_ylabel("Ay (m/s²)")
+            view.set_zlabel("Az (m/s²)")
 
-    ax_top.set_title("Side View")
-    ax_rear.set_title("Rear View")
-    ax_front.set_title("Front View")
-    ax_full.set_title("3D Full Trajectory")
-    
+        ax_top.view_init(90, -90)
+        ax_rear.view_init(-90, 90)
+        ax_front.view_init(-90, -90)
+        ax_full.view_init(30, -60)
 
-    fig.text(0.5, 0.02, text_str, fontsize=12, ha='center', va='center')
-    
+        ax_top.set_title("Side View")
+        ax_rear.set_title("Rear View")
+        ax_front.set_title("Front View")
+        ax_full.set_title("3D Full Trajectory")
 
-    # Cumulative indices
-    idx_back = min(i + 1, len(back_ax))
-    idx_down = min(i - top_idx + 1, len(down_ax)) if i >= top_idx else 0
-    idx_follow = min(i - impact_idx + 1, len(follow_ax)) if i >= impact_idx else 0
-    
+        fig.text(0.5, 0.02, text_str, fontsize=12, ha='center', va='center')
 
-    # Plot Top (Side)
-    ax_top.plot(back_ax[:idx_back], back_ay[:idx_back], back_az[:idx_back], "r-", lw=1)
-    ax_top.plot(down_ax[:idx_down], down_ay[:idx_down], down_az[:idx_down], "g-", lw=1)
-    ax_top.plot(follow_ax[:idx_follow], follow_ay[:idx_follow], follow_az[:idx_follow], "b-", lw=1)
-    ax_top.plot([ax_shift[i]], [ay_shift[i]], [az_shift[i]], "ko")
-    
+        # Cumulative indices
+        idx_back = min(i + 1, len(back_ax))
+        idx_down = min(i - top_idx + 1, len(down_ax)) if i >= top_idx else 0
+        idx_follow = min(i - impact_idx + 1, len(follow_ax)) if i >= impact_idx else 0
 
-    # Plot Rear
-    ax_rear.plot(-back_az[:idx_back] + 1, back_ay[:idx_back], back_ax[:idx_back] + 1, "r-", lw=1)
-    ax_rear.plot(-down_az[:idx_down] + 1, down_ay[:idx_down], down_ax[:idx_down] + 1, "g-", lw=1)
-    ax_rear.plot(-follow_az[:idx_follow] + 1, follow_ay[:idx_follow], follow_ax[:idx_follow] + 1, "b-", lw=1)
-    ax_rear.plot([-az_shift[i] + 1], [ay_shift[i]], [ax_shift[i] + 1], "ko")
-    
+        # Plot Top
+        ax_top.plot(back_ax[:idx_back], back_ay[:idx_back], back_az[:idx_back], "r-", lw=1)
+        ax_top.plot(down_ax[:idx_down], down_ay[:idx_down], down_az[:idx_down], "g-", lw=1)
+        ax_top.plot(follow_ax[:idx_follow], follow_ay[:idx_follow], follow_az[:idx_follow], "g-", lw=1)
+        ax_top.plot([ax_shift[i]], [ay_shift[i]], [az_shift[i]], "ko")
 
-    # Plot Front
-    ax_front.plot(back_az[:idx_back] + 1, back_ay[:idx_back], back_ax[:idx_back] + 1, "r-", lw=1)
-    ax_front.plot(down_az[:idx_down] + 1, down_ay[:idx_down], down_ax[:idx_down] + 1, "g-", lw=1)
-    ax_front.plot(follow_az[:idx_follow] + 1, follow_ay[:idx_follow], follow_ax[:idx_follow] + 1, "b-", lw=1)
-    ax_front.plot([az_shift[i] + 1], [ay_shift[i]], [ax_shift[i] + 1], "ko")
-    
+        # Plot Rear
+        ax_rear.plot(back_az[:idx_back] + 1, back_ay[:idx_back], back_ax[:idx_back] + 1, "r-", lw=1)
+        ax_rear.plot(down_az[:idx_down] + 1, down_ay[:idx_down], down_ax[:idx_down] + 1, "g-", lw=1)
+        ax_rear.plot(follow_az[:idx_follow] + 1, follow_ay[:idx_follow], follow_ax[:idx_follow] + 1, "g-", lw=1)
+        ax_rear.plot([az_shift[i] + 1], [ay_shift[i]], [ax_shift[i] + 1], "ko")
+        
+        
+        # Plot Front
+        ax_front.plot(back_az[:idx_back] + 1, -back_ay[:idx_back] + 3, back_ax[:idx_back] + 1, "r-", lw=1)
+        ax_front.plot(down_az[:idx_down] + 1, -down_ay[:idx_down] + 3, down_ax[:idx_down] + 1, "g-", lw=1)
+        ax_front.plot(follow_az[:idx_follow] + 1, -follow_ay[:idx_follow] + 3, follow_ax[:idx_follow] + 1, "g-", lw=1)
+        ax_front.plot([az_shift[i] + 1], [-ay_shift[i] + 3] , [ax_shift[i] + 1], "ko")
 
-    # Plot Full with labels to avoid legend warning
-    ax_full.plot(back_ax[:idx_back], back_ay[:idx_back], back_az[:idx_back], "r-", lw=1, label="Backswing")
-    ax_full.plot(down_ax[:idx_down], down_ay[:idx_down], down_az[:idx_down], "g-", lw=1, label="Downswing")
-    ax_full.plot(follow_ax[:idx_follow], follow_ay[:idx_follow], follow_az[:idx_follow], "b-", lw=1, label="Follow-through")
-    ax_full.plot([ax_shift[i]], [ay_shift[i]], [az_shift[i]], "ko")
-    ax_full.legend(loc='upper right')
+        # Plot Full
+        ax_full.plot(back_ax[:idx_back], back_ay[:idx_back], back_az[:idx_back], "r-", lw=1, label="Backswing")
+        ax_full.plot(down_ax[:idx_down], down_ay[:idx_down], down_az[:idx_down], "g-", lw=1, label="Downswing")
+        ax_full.plot(follow_ax[:idx_follow], follow_ay[:idx_follow], follow_az[:idx_follow], "g-", lw=1, label="Follow-through")
+        ax_full.plot([ax_shift[i]], [ay_shift[i]], [az_shift[i]], "ko")
+        ax_full.legend(loc='upper right')
 
+        # Save frame
+        frame_path = temp_dir / f"frame_{i:04d}.png"
+        fig.savefig(frame_path, bbox_inches='tight', dpi=100)
 
-    # Save frame
-    frame_path = temp_dir / f"frame_{i:04d}.png"
-    fig.savefig(frame_path, bbox_inches='tight', dpi=100)
-    plt.close(fig)
+    except RuntimeError as e:
+        print(e)
+        # if "main thread is not in main loop" in str(e):
+        #     print(f"[INFO] Ignored Tkinter thread error on frame {i}")
+        # else:
+        #     raise
+    finally:
+        plt.close(fig)
 
     return str(frame_path)
 
 
 def animate_imu_low_accel(csv_file=f"{BASE_PATH}/raw.csv", out_file="imu_low_accelfilt.gif", downsample_factor=6, num_threads=3):
     
-    import matplotlib
-    matplotlib.use('Agg')  # Use non-interactive backend (no Tkinter)
-    import matplotlib.pyplot as plt
     
+    import matplotlib.pyplot as plt    
     try:
         df = pd.read_csv(csv_file)
     except FileNotFoundError:
@@ -350,19 +436,33 @@ def animate_imu_low_accel(csv_file=f"{BASE_PATH}/raw.csv", out_file="imu_low_acc
                 follow_ax, follow_ay, follow_az, ax_shift, ay_shift, az_shift,
                 top_idx, impact_idx, text_str, temp_dir)
         render_args.append(args)
-
+    c = 0
     # Parallel rendering
     print(f"[INFO] Rendering {num_frames} frames using {num_threads} threads...")
-    with Pool(num_threads) as pool:
-        frame_paths = pool.map(render_frame, render_args)
-    pool.close()
-    pool.join()
+    try:
+        # print(f"[INFO] Rendering {num_frames} frames using {num_threads} threads...")
+        with Pool(num_threads) as pool:
+            frame_paths = pool.map(render_frame, render_args)
+    except RuntimeError as e:
+        print("HELLOW")
+        if "main thread is not in main loop" in str(e):
+            print("[INFO] Ignored Tkinter thread runtime error during frame rendering.")
 
+
+    print("length of frames: ", len(frame_paths))
     # Compile GIF using imwrite
     print("[INFO] Compiling GIF...")
     fps = 15  # Balanced for smoothness
     images = [iio.imread(p) for p in sorted(frame_paths)]
-    iio.imwrite(out_file, images, fps=fps)
+    # iio.imwrite(out_file, images, fps=fps)
+    iio.mimsave(
+        out_file,
+        images,
+        fps=fps,
+        loop=0,
+        palettesize=256,
+        subrectangles=False  # Prevent delta-frame compression
+    )
     print(f"[OK] Animation saved as {out_file} ({num_frames} frames at {fps} FPS)")
 
     # Cleanup

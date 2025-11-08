@@ -6,7 +6,7 @@ from scipy import signal, integrate
 from scipy.spatial.transform import Rotation as R
 import os
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import argparse
 import sys
@@ -14,6 +14,8 @@ import time
 import matplotlib.animation as animation
 from PIL import Image
 from multiprocessing import Process
+sys.stdout.reconfigure(encoding='utf-8')
+
 
 
 
@@ -92,14 +94,17 @@ def main_menu(t_arr, imu_low_accel_arr, imu_gyro, ax_filt, ay_filt, az_filt, gx_
 
         elif choice == "2":
             print("🎬 Generating low-accel animation...")
-            print("⏳ This may take around 1 second...\n")
+            print("⏳ This may take around 1 minute...\n")
             time.sleep(1)  # Small delay for clarity
             animate_imu_low_accel(csv_path, "imu_low_accel.gif")
             print("\n✅ Animation complete! Saved as: imu_low_accel.gif")
              # Start GIF viewer in separate process to avoid Tk threading conflicts
-            p = Process(target=display_animated_gif, args=("imu_low_accel.gif",))
-            p.start()
-            p.join()  
+            # p = Process(target=display_animated_gif, args=("imu_low_accel.gif",))
+            # p.start()
+            # p.join()
+
+            display_animated_gif("imu_low_accel.gif")
+  
             input("\nPress Enter to return to the menu...")
 
         elif choice == "3":
@@ -297,3 +302,10 @@ if __name__ == "__main__":
     
     
     main_menu(t_arr, imu_low_accel_arr, imu_gyro, ax_filt, ay_filt, az_filt, gx_filt, gz_filt, gy_filt, vel_global, imu_high_accel_arr, pos_shift, euler_deg, imu_euler)
+
+# imu = GolfIMU()
+
+# imu.connect()
+# print("Collecting IMU data... Perform the golf swing.")
+# data = imu.read_data()
+# print(data)
