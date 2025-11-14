@@ -116,6 +116,7 @@ void PushButton::button_task(void *pvParameters)
                 button->imu_->loop();
 
                 const RawAccelVec& accel = button->imu_->getRawLowAccelerationIng();
+                const LinearAccelVec& linearAcceleration = button->imu_->getLinearLowAccelerationInMeterPerSec();
                 const RawAccelVec& high_accel = button->imu_->getRawHighAccelerationIng();
                 const RawGyroVec& gyro = button->imu_->getRawGyroInMdps();
                 const EulerAngles &pitch = button->imu_->getPitch();
@@ -124,9 +125,9 @@ void PushButton::button_task(void *pvParameters)
 
                 // Note: Fix potential bug - high_accel[1] and [2] were using [0]
                 button->imu_->readings.push_back({
-                    static_cast<float>(accel[0]),
-                    static_cast<float>(accel[1]),
-                    static_cast<float>(accel[2]),
+                    static_cast<float>(linearAcceleration[0]),
+                    static_cast<float>(linearAcceleration[1]),
+                    static_cast<float>(linearAcceleration[2]),
                     static_cast<float>(high_accel[0]),
                     static_cast<float>(high_accel[1]),  // Fixed: was high_accel[0]
                     static_cast<float>(high_accel[2]),  // Fixed: was high_accel[0]

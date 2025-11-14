@@ -5,7 +5,7 @@ FilterSettingMask ImuManager::filterSettingMask = {0};
 
 ImuManager::ImuManager(gpio_num_t cs, gpio_num_t sck, gpio_num_t miso, gpio_num_t mosi, SpiMode mode)
     : cs_{cs}, sck_{sck}, miso_{miso}, mosi_{mosi}, mode_{mode},
-      lowAccel_{3, 0.0f}, highAccel_{3, 0.0f}, dpsGyro_{3, 0.0f}, tempInC_{0.0f},
+      lowAccel_{3, 0.0f}, linearLowAccel_{3, 0.0f}, highAccel_{3, 0.0f}, dpsGyro_{3, 0.0f}, tempInC_{0.0f},
       quat_{4, 0.0f}, pitch_{0.0}, roll_{0.0}, yaw_{0.0},
       dataRawMotionOne{0}, dataRawMotionTwo{0}, dataRawMotionThree{0}, dataRawTemperature{0}, status{0},
       lowAccelStatus_{false}, highAccelStatus_{false}, gyroStatus_{false}, tempStatus_{false},
@@ -53,6 +53,7 @@ void ImuManager::loop()
     updateHighAccelVec();
     updateGyroVec();
     updateQuaternionVec();
+    updateLinearLowAccelVec();
     updatePitchVar();
     updateRollVar();
     updateYawVar();
@@ -247,6 +248,52 @@ void ImuManager::updateLowAccelVec()
     }
 }
 
+void ImuManager::updateLinearLowAccelVec()
+{
+    // updateLowAccelVec();
+    // updateQuaternionVec();
+    Vector3 rawAccel;
+    rawAccel.x = lowAccel_[0] * 9.81; //converting g to m/sec2
+    rawAccel.y = lowAccel_[1] * 9.81; //converting g to m/sec2
+    rawAccel.z = lowAccel_[2] * 9.81; //converting g to m/sec2
+
+    Vector3 linAccel = computeLinearAccelerationQuat(rawAccel, quat_[0], quat_[1], quat_[2], quat_[3]);
+    linearLowAccel_[0] = linAccel.x;
+    linearLowAccel_[1] = linAccel.y;
+    linearLowAccel_[2] = linAccel.z;
+
+    // printf("Linear Acc [m/s²]: X=%.2f Y=%.2f Z=%.2f\n",
+    //                        linearLowAccel_[0], linearLowAccel_[1], linearLowAccel_[2]);
+    
+}
+
+// Gravity in sensor frame from quaternion (x, y, z, w)
+Vector3 ImuManager::computeGravityFromQuat(float qx, float qy, float qz, float qw) {
+    Vector3 g;
+
+    // Rotate world gravity vector (0, 0, 9.81) by quaternion
+    // g = q * (0,0,9.81) * q_conjugate
+    // Simplified formula:
+    g.x = 2.0f * (qx * qz - qw * qy) * 9.81f;
+    g.y = 2.0f * (qy * qz + qw * qx) * 9.81f;
+    g.z = (1.0f - 2.0f * (qx*qx + qy*qy)) * 9.81f;
+
+    return g;
+}
+
+// Linear acceleration = rawAccel - gravity
+Vector3 ImuManager::computeLinearAccelerationQuat(const Vector3& rawAccel, float qx, float qy, float qz, float qw) 
+{
+    Vector3 gravity = computeGravityFromQuat(qx, qy, qz, qw);
+
+    Vector3 linAccel;
+    linAccel.x = rawAccel.x - gravity.x;
+    linAccel.y = rawAccel.y - gravity.y;
+    linAccel.z = rawAccel.z - gravity.z;
+
+    return linAccel;
+}
+
 void ImuManager::updateHighAccelVec()
 {
     if (isHighAccelReady())
@@ -323,8 +370,6 @@ void ImuManager::updateQuaternionVec()
     quat_[1] = q[1];
     quat_[2] = q[2];
     quat_[3] = q[3];
-
-    
 
 }
 

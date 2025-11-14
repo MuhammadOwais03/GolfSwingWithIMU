@@ -21,7 +21,7 @@ extern "C" void app_main(void)
 
     imu.setup();
     
-    printf("%d\n", GPIO_NUM_15);
+    // printf("%d\n", GPIO_NUM_15);
     gpio_install_isr_service(0);
     
     button = new PushButton(GPIO_NUM_4, &blinker, &flash, &vib, &imu); 
@@ -29,8 +29,8 @@ extern "C" void app_main(void)
     while (1) {
         reader.read_python_file();
         // imu.loop();
-        // const RawAccelVec& high_accel = imu.getRawHighAccelerationIng();
-        // printf("%.2f,%.2f,%.2f\n", high_accel[0], high_accel[1], high_accel[2]);
+        // const LinearAccelVec& linearAcceleration = imu.getLinearLowAccelerationInMeterPerSec();
+        // printf("%.2f,%.2f,%.2f\n", linearAcceleration[0], linearAcceleration[1], linearAcceleration[2]);
         vTaskDelay(pdMS_TO_TICKS(500));
     };
 

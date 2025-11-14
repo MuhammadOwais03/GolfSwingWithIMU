@@ -72,7 +72,7 @@ class GolfIMU:
             r = r.strip().split(",")
             if len(r) == 13:
                 try:
-                    lax, lay, laz = float(r[1]), (float(r[0])+1) * -1, float(r[2]) * -1
+                    lax, lay, laz = float(r[1]), (float(r[0])) * -1, float(r[2]) * -1
                     hax, hay, haz = -float(r[3]), -float(r[4]), -float(r[5])
                     gx, gy, gz = float(r[6]), float(r[7]), float(r[8])
                     pitch, roll, yaw = float(r[9]), float(r[10]), float(r[11])

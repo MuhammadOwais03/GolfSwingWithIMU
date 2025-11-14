@@ -13,8 +13,10 @@
 #define POLL_INTERVAL      1000 // ms
 #define CNT_FOR_OUTPUT     100
 #define FIFO_WATERMARK     128
+struct Vector3 {float x; float y; float z;};
 
 using RawAccelVec         = std::vector<float>;
+using LinearAccelVec      = std::vector<float>;
 using RawGyroVec          = std::vector<float>;
 using QuaternionVec       = std::vector<float>;
 using Temperature         = float;
@@ -36,6 +38,8 @@ using SpiDeviceHandle     = spi_device_handle_t;
 using FilterSettingMask   = lsm6dsv320x_filt_settling_mask_t;
 using Character           = char;
 
+
+
 class ImuManager 
 {
 private:
@@ -44,6 +48,7 @@ private:
     const gpio_num_t cs_, sck_, miso_, mosi_;
     const SpiMode mode_;
     RawAccelVec lowAccel_{3, 0.0f};
+    LinearAccelVec linearLowAccel_{3, 0.0f};
     RawAccelVec highAccel_{3, 0.0f};
     RawGyroVec dpsGyro_{3, 0.0f};
     Temperature tempInC_{0.0f};
@@ -52,7 +57,7 @@ private:
     RawMotion dataRawMotionOne[3], dataRawMotionTwo[3] , dataRawMotionThree[3];
     RawTemperature dataRawTemperature;
     lsm6dsv320x_data_ready_t status;
-    bool lowAccelStatus_, highAccelStatus_, gyroStatus_, tempStatus_;
+    bool lowAccelStatus_, linearlowAccelStatus_, highAccelStatus_, gyroStatus_, tempStatus_;
     DevCtx devCtx;
     SpiDeviceHandle spiHandle;
     static FilterSettingMask filterSettingMask;
@@ -81,6 +86,9 @@ private:
     bool isGyroReady() const { return gyroStatus_; }
     bool isTemperatureReady() const { return tempStatus_; }
     void updateLowAccelVec();
+    void updateLinearLowAccelVec();
+    Vector3 computeGravityFromQuat(float qx, float qy, float qz, float qw);
+    Vector3 computeLinearAccelerationQuat(const Vector3& rawAccel, float qx, float qy, float qz, float qw);
     void updateHighAccelVec();
     void updateGyroVec();
     void updateTemperatureVar();
@@ -95,6 +103,7 @@ public:
     void setup();
     void loop();
     const RawAccelVec& getRawLowAccelerationIng() const { return lowAccel_; }
+    const LinearAccelVec& getLinearLowAccelerationInMeterPerSec() const { return linearLowAccel_; }
     const RawAccelVec&  getRawHighAccelerationIng() const { return highAccel_; }
     const RawGyroVec&  getRawGyroInMdps()          const { return dpsGyro_; }
     Temperature getTemperatureInDegreeC() const { return tempInC_; }
